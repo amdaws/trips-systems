@@ -488,7 +488,7 @@ items = [
 ]
 
 [[release]]
-at = 2026-11-15T15:55:00+10:00
+at = 2026-11-15T15:53:00+10:00
 title = "Claude reads pasted links"
 items = [
   { category = "improved", area = "Planner", text = "A link pasted into Fill in, and the check made when a planned stay, activity or transfer with a link is saved or refreshed, is now read by Claude too, for the name, price, address, phone, email and opening hours or check-in times, whenever the site lets the planner read its page." },

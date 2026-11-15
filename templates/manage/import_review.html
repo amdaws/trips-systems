@@ -1,0 +1,88 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Review booking{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <div class="stack" style="--stack: .2rem">
+    <p class="eyebrow">{{ record.get_source_display }}{% if found.site %} · {{ found.site }}{% endif %} · {{ record.received_at|date:"j M Y, H:i" }}{% if kind == "activity" %} · Activity{% elif kind == "transfer" %} · Transfer{% endif %}</p>
+    <h1 style="font-size: var(--step-3)">{{ found.name|default:record }}</h1>
+    {% if found.name_local %}<p class="muted">{{ found.name_local }}</p>{% endif %}
+  </div>
+  <a class="btn btn--small" href="{% url 'manage:imports' %}">← Bookings inbox</a>
+</div>
+
+{% if record.status != "new" %}<p class="alert">{{ record.get_status_display }}{% if record.stay %}: {{ record.stay }}{% endif %}{% if record.applied_at %} on {{ record.applied_at|date:"j M Y" }}{% endif %}.</p>{% endif %}
+
+<form method="post" class="card cluster">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="retrip">
+  <label for="trip-select"><strong>Trip</strong></label>
+  <select id="trip-select" name="trip" class="input" style="width: auto">
+    {% if not chosen_trip %}<option value="">Choose a trip…</option>{% endif %}
+    {% for t in trips %}<option value="{{ t.pk }}"{% if chosen_trip and t.pk == chosen_trip.pk %} selected{% endif %}>{{ t.title }} ({{ t.start_date|date:"M Y" }})</option>{% endfor %}
+  </select>
+  <button class="btn btn--small" type="submit">Use this trip</button>
+</form>
+
+<form method="post" class="form stack">
+  {% csrf_token %}
+  {% if chosen_trip %}<input type="hidden" name="trip" value="{{ chosen_trip.pk }}">{% endif %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Use</th><th>Detail</th><th>Found in the confirmation</th><th>{% if kind == "activity" %}On the activity now{% elif kind == "transfer" %}On the transport now{% else %}On the stay now{% endif %}</th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{% if row.value %}<input type="checkbox" name="fields" value="{{ row.key }}" checked aria-label="Use {{ row.label }}">{% endif %}</td>
+          <td>{{ row.label }}</td>
+          <td>{% if row.value %}{{ row.value }}{% else %}<span class="muted">not found</span>{% endif %}</td>
+          <td class="muted">{{ row.current }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if chosen_trip and kind == "activity" or chosen_trip and kind == "transfer" %}
+  <fieldset class="card card--flat stack" style="--stack: var(--space-2xs)">
+    <legend class="small" style="font-weight: 600">{% if kind == "activity" %}Which activity is this?{% else %}Which transport is this?{% endif %}</legend>
+    {% for c in candidates %}
+    <label class="check"><input type="radio" name="target" value="{{ c.pk }}"{% if target and c.pk == target.pk %} checked{% endif %}> {% if kind == "activity" %}{{ c.title }} · {{ c.day.date|date:"D j M" }}{% else %}{{ c }} · {{ c.depart_date|date:"D j M" }}{% if c.depart_time %} {{ c.depart_time|time:"H:i" }}{% endif %}{% endif %}{% if target and c.pk == target.pk %} <span class="badge badge--blue">{% if kind == "activity" %}matches the name and date{% else %}matches the date{% endif %}</span>{% endif %}</label>
+    {% endfor %}
+    <label class="check"><input type="radio" name="target" value="new"{% if not target %} checked{% endif %}> {% if kind == "activity" %}Add it as a new activity{% else %}Add it as new transport{% endif %}{% if found.activity_date %} on {{ found.activity_date|date:"D j M" }}{% endif %}</label>
+    <label class="check"><input type="radio" name="target" value=""> None of these</label>
+  </fieldset>
+  {% if found.amount %}
+  <label class="check"><input type="checkbox" name="budget" value="1" checked> Record {{ found.currency }} {{ found.amount }} as paid (as a new budget line)</label>
+  {% endif %}
+  {% elif chosen_trip %}
+  <fieldset class="card card--flat stack" style="--stack: var(--space-2xs)">
+    <legend class="small" style="font-weight: 600">Which stay is this?</legend>
+    {% for s in stays %}
+    <label class="check"><input type="radio" name="stay" value="{{ s.pk }}"{% if stay and s.pk == stay.pk %} checked{% endif %}> {{ s.label }} · {{ s.check_in_date|date:"j M" }}–{{ s.check_out_date|date:"j M" }}{% if s.name %} · {{ s.name }}{% endif %}{% if stay and s.pk == stay.pk %} <span class="badge badge--blue">matches the dates</span>{% endif %}</label>
+    {% endfor %}
+    <label class="check"><input type="radio" name="stay" value="new"{% if not stay %} checked{% endif %}> Create a new stay</label>
+    <label class="check"><input type="radio" name="stay" value=""> It's not a stay (e.g. a flight or train)</label>
+  </fieldset>
+  {% if found.amount %}
+  <label class="check"><input type="checkbox" name="budget" value="1" checked> Record {{ found.currency }} {{ found.amount }} as paid{% if budget_item %} on the budget line "{{ budget_item }}"{% else %} (as a new budget line){% endif %}</label>
+  {% endif %}
+  {% if legs %}
+  <label class="check"><input type="checkbox" name="legs" value="1" checked> Mark as booked: {% for leg in legs %}{{ leg }}{% if not forloop.last %}, {% endif %}{% endfor %}</label>
+  {% endif %}
+  {% else %}
+  <p class="alert alert--warning">Choose the trip above first.</p>
+  {% endif %}
+
+  <div class="toolbar">
+    <button class="btn btn--primary" type="submit" name="action" value="apply"{% if not chosen_trip %} disabled{% endif %}>Add to trip</button>
+    {% if record.status == "new" %}<button class="btn btn--danger" type="submit" name="action" value="dismiss">Dismiss</button>{% endif %}
+  </div>
+</form>
+
+<details class="card">
+  <summary class="small">Show the confirmation text</summary>
+  <pre class="small" style="white-space: pre-wrap; margin: .75rem 0 0">{{ record.text }}</pre>
+</details>
+{% endblock %}

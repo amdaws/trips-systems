@@ -1,0 +1,20 @@
+# Loads the saved "Cloudflare only" web-port rules at boot (see cloudflare-only-refresh).
+# Server-level, installed by hand like the Caddyfile: /etc/systemd/system/cloudflare-only.service
+[Unit]
+Description=Web ports 80 and 443 accept only Cloudflare (nftables)
+Documentation=file:/usr/local/sbin/cloudflare-only-refresh
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+After=nftables.service
+Conflicts=shutdown.target
+ConditionPathExists=/etc/cloudflare-only.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/cloudflare-only.nft
+ExecStop=/usr/sbin/nft delete table inet cloudflare_only
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,12 @@
+{# In a stay, transport or activity's edit area: how it was added, what its link didn't give, and Refresh details. #}
+<div class="card card--flat stack" style="--stack: var(--space-3xs)">
+  <p class="small"><strong>{% if plan.added_from %}{{ plan.get_added_from_display }}{% else %}How this was added wasn't recorded{% endif %}</strong>{% if plan.added_from == "link" and plan.added_from_url %}: <a href="{{ plan.added_from_url }}" target="_blank" rel="noopener nofollow">{{ plan.added_from_url|truncatechars:70 }}</a>{% elif plan.added_from == "link" %} (pasted page text){% elif not plan.added_from %} <span class="muted">(added before 15 Nov 2026)</span>{% endif %}.</p>
+  {% if missing %}<p class="alert alert--warning small">Some details are missing: {{ missing|join:", " }}. Add them here, press Refresh details to look at its link again, or add the confirmation once it's booked.</p>{% endif %}
+  {% if plan_link %}
+  <form method="post" action="{% url 'manage:refresh_details' trip.pk plan_kind plan.pk %}" class="cluster">
+    {% csrf_token %}
+    <button class="btn btn--small" type="submit">Refresh details</button>
+    <span class="small muted">Reads <a href="{{ plan_link }}" target="_blank" rel="noopener nofollow">its link</a> again and fills in anything still empty (nothing you've typed is changed).{% if plan.details_checked_at %} Last read {{ plan.details_checked_at|timesince }} ago{% if plan.details_note %}: {{ plan.details_note }}{% endif %}.{% endif %}</span>
+  </form>
+  {% endif %}
+</div>

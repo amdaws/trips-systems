@@ -1,0 +1,54 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Add confirmation · {{ plan }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <div class="stack" style="--stack: .2rem">
+    <p class="eyebrow">{% if kind == "stay" %}Stay{% elif kind == "leg" %}Transport{% else %}Activity{% endif %} · {% include "manage/_status_badge.html" %}</p>
+    <h2>Add confirmation: {{ plan }}</h2>
+  </div>
+  <a class="btn btn--small" href="{{ back }}">← Back</a>
+</div>
+
+{% if form %}
+<p class="small muted">Add the booking's confirmation and the confirmed details are read from it: booking number, dates and times, and what it cost. You'll see them next to what's here now before anything changes. Booking sites usually only show a booking when you're signed in, so if the link can't be read, paste the confirmation email or page, or upload its PDF.</p>
+<form method="post" enctype="multipart/form-data" class="form card stack">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert--error">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-grid">
+    {% for field in form %}{% include "manage/_field.html" %}{% endfor %}
+  </div>
+  <div class="btn-row"><button class="btn btn--primary" type="submit">Read the confirmation</button></div>
+</form>
+{% else %}
+<p class="small muted">From {{ record.get_source_display|lower }}{% if found.site %} · {{ found.site }}{% endif %}. Untick anything you don't want to use.</p>
+{% if nothing %}<p class="alert alert--warning">No booking details were found in that. If it was a link, the page probably needed you to be signed in: <a href="{% url 'manage:confirm_booking' trip.pk kind plan.pk %}">try again</a> with the confirmation pasted or uploaded.</p>{% endif %}
+<form method="post" class="form stack">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="apply">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Use</th><th>Detail</th><th>In the confirmation</th><th>Here now</th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{% if row.value %}<input type="checkbox" name="fields" value="{{ row.key }}" checked aria-label="Use {{ row.label }}">{% endif %}</td>
+          <td>{{ row.label }}</td>
+          <td>{% if row.value %}{{ row.value }}{% else %}<span class="muted">not found</span>{% endif %}</td>
+          <td class="muted">{{ row.current }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if found.amount %}
+  <label class="check"><input type="checkbox" name="budget" value="1" checked> Put {{ found.currency }} {{ found.amount }} on the budget as what it cost</label>
+  {% endif %}
+  <div class="btn-row">
+    <button class="btn btn--primary" type="submit">Add the confirmed details</button>
+    <a class="btn" href="{{ back }}">Cancel</a>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

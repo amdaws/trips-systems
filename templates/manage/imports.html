@@ -1,0 +1,64 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Bookings inbox{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <div class="stack" style="--stack: .2rem">
+    <p class="eyebrow">Planner</p>
+    <h1 style="font-size: var(--step-3)">Bookings inbox</h1>
+  </div>
+  <a class="btn btn--small" href="{% url 'manage:dashboard' %}">← All trips</a>
+</div>
+
+<section class="card stack">
+  <h2 style="font-size: var(--step-1)">Waiting for review</h2>
+  <ul class="list-plain">
+    {% for r in waiting %}
+    <li class="row-item">
+      <span><a href="{% url 'manage:import_review' r.pk %}"><strong>{{ r }}</strong></a>
+        <span class="small muted">· {{ r.get_source_display }} · {{ r.received_at|date:"j M, H:i" }}{% if r.trip %} · {{ r.trip }}{% endif %}</span></span>
+      <a class="btn btn--small btn--primary" href="{% url 'manage:import_review' r.pk %}">Review</a>
+    </li>
+    {% empty %}
+    <li class="small muted">Nothing waiting.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<form method="post" enctype="multipart/form-data" class="form card stack">
+  {% csrf_token %}
+  <h2 style="font-size: var(--step-1)">Import a booking</h2>
+  <p class="small muted">Paste a confirmation email or a booking page (on the page: select all, copy, paste), or upload the email (.eml) or PDF e-receipt. Hotel bookings (Trip.com, Booking.com, Tripadvisor) go to a stay; Klook and Viator activities and transfers go to an activity or to transport. You'll see what was found before anything changes. PINs are removed automatically.</p>
+  {% if form.non_field_errors %}<div class="alert alert--error">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-grid">
+    {% for field in form %}{% include "manage/_field.html" %}{% endfor %}
+  </div>
+  <div><button class="btn btn--primary" type="submit">Read it</button></div>
+</form>
+
+<section class="card card--flat stack" style="--stack: var(--space-xs)">
+  <h2 style="font-size: var(--step-1)">Forward confirmations by email</h2>
+  {% if inbound_url %}
+  <p class="small">The receiving end is ready. Emails sent to it appear above for review.</p>
+  <p class="small">Receiving address (keep it private): <code style="word-break: break-all">{{ inbound_url }}</code></p>
+  <p class="small muted">{% if allowed_senders %}Accepted from: {{ allowed_senders|join:", " }}.{% else %}Accepted from any sender who knows the address.{% endif %}</p>
+  {% else %}
+  <p class="small muted">Not switched on yet.</p>
+  {% endif %}
+</section>
+
+{% if done %}
+<section class="card stack">
+  <h2 style="font-size: var(--step-1)">Recently handled</h2>
+  <ul class="list-plain">
+    {% for r in done %}
+    <li class="row-item">
+      <span><a href="{% url 'manage:import_review' r.pk %}">{{ r }}</a> <span class="small muted">· {{ r.get_status_display }}{% if r.stay or r.leg or r.item %}: {{ r.stay|default:r.leg|default:r.item }}{% endif %}{% if r.trip %} ({{ r.trip }}){% endif %}</span></span>
+      <span class="small muted">{{ r.received_at|date:"j M" }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}

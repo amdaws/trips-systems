@@ -1,0 +1,9 @@
+<div class="place-picker" data-kinds="{{ widget.kinds }}">
+  <input type="hidden" name="{{ widget.name }}" value="{{ widget.place.pk|default:'' }}" data-place-id>
+  <input type="search" class="input" id="{{ widget.attrs.id }}" value="{{ widget.place|default:'' }}" placeholder="Type a name, code, pinyin or 中文" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" data-place-text>
+  <ul class="ac-list" role="listbox" hidden></ul>
+  <div class="cluster" style="margin-top:.35rem">
+    <button type="button" class="btn btn--small" data-map-search>Search the map</button>
+    <span class="ac-selected" data-place-status>{% if widget.place %}✓ {{ widget.place.get_kind_display }}{% endif %}</span>
+  </div>
+</div>

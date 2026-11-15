@@ -1,0 +1,2 @@
+{# Under a stay, transport or activity's status: a planned one's estimated cost, or what the booking cost (its budget line). #}
+{% with line=plan.budget_items.all.0 %}{% if line %}{% if plan.status == "planned" and line.estimate is not None %}<br><span class="small muted">est. {{ line.estimate_currency }} {{ line.estimate|floatformat:"2g" }}</span>{% elif line.actual is not None %}<br><span class="small muted">{{ line.actual_currency }} {{ line.actual|floatformat:"2g" }}</span>{% endif %}{% endif %}{% endwith %}

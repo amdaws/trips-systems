@@ -1,0 +1,26 @@
+{# The stay's nearest metro station and links to the metro map or journey planner (planner only). #}
+{% with m=stay.metro_view %}
+{% if m.station or m.arrival or m.departure or m.map_url or m.arrival_taxi or m.departure_taxi %}
+<div class="metro-info small stack" style="--stack: .2rem">
+  {% if m.station %}
+  <span class="cluster">
+    <span>Metro: {% if m.station.url %}<a href="{{ m.station.url }}" target="_blank" rel="noopener noreferrer">{{ m.station.name }}</a>{% else %}{{ m.station.name }}{% endif %}{% if m.station.local %} <span class="local">{{ m.station.local }}</span>{% endif %}</span>
+    {% for line in m.station.lines %}<span class="line-chip"{% if line.colour %} style="--line: {{ line.colour }};{% if line.text %} --line-text: {{ line.text }};{% endif %}"{% endif %}>{{ line.name }}</span>{% endfor %}
+    {% if m.station.exit %}<span>Exit {{ m.station.exit }}</span>{% endif %}
+    {% if m.station.distance %}<span class="muted">{{ m.station.distance }} from the hotel</span>{% endif %}
+  </span>
+  {% elif stay.nearest_metro %}<span>Metro: {{ stay.nearest_metro }}</span>{% endif %}
+  <span class="cluster">
+    {% if m.arrival %}<a href="{{ m.arrival.url }}" target="_blank" rel="noopener noreferrer">{% if m.arrival.same %}Metro map: {{ m.arrival.station }}{% else %}Metro map: {{ m.arrival.station }} → {{ m.station.name|default:"hotel" }}{% endif %}</a> <span class="muted">(arrive {{ m.arrival.leg }} at {{ m.arrival.place }})</span>{% endif %}
+    {% if m.departure and not m.departure.same %}<a href="{{ m.departure.url }}" target="_blank" rel="noopener noreferrer">Metro map: {{ m.station.name|default:"hotel" }} → {{ m.departure.station }}</a> <span class="muted">(leave {{ m.departure.leg }} from {{ m.departure.place }})</span>{% endif %}
+    {% if not m.arrival and not m.departure and m.map_url %}<a href="{{ m.map_url }}" target="_blank" rel="noopener noreferrer">{{ m.map_label|default:m.network }}</a>{% endif %}
+  </span>
+  {% with t=m.arrival_taxi %}{% if t %}<span>{% if t.walk %}Walk from {{ t.place }}: about {{ t.walk }}{% else %}Taxi from {{ t.place }} to {{ t.to }}: about {{ t.minutes }} min ({{ t.km }} km) without traffic{% endif %} <span class="muted">(arrive {{ t.leg }})</span></span>{% endif %}{% endwith %}
+  {% with t=m.departure_taxi %}{% if t %}<span>{% if t.walk %}Walk to {{ t.place }}: about {{ t.walk }}{% else %}Taxi from {{ t.to }} to {{ t.place }}: about {{ t.minutes }} min ({{ t.km }} km) without traffic{% endif %} <span class="muted">(leave {{ t.leg }})</span></span>{% endif %}{% endwith %}
+  {% if m.message %}<span class="muted">{{ m.message }}</span>{% endif %}
+</div>
+{% else %}
+{% if stay.nearest_metro %}<br><span class="small">Metro: {{ stay.nearest_metro }}</span>{% endif %}
+{% if m.message %}<br><span class="small muted">{{ m.message }}</span>{% endif %}
+{% endif %}
+{% endwith %}

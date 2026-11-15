@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Stays · {{ trip.title }} · {{ site.name }}{% endblock %}
+{% block description %}Where {{ trip.title }} stays each night.{% endblock %}
+{% block extra_head %}{% if unlisted %}<meta name="robots" content="noindex, nofollow">{% endif %}{% endblock %}
+{% block header_width %}container--app{% endblock %}
+{% block footer_width %}container--app{% endblock %}
+
+{% block content %}
+{% include "journeys/_trip_header.html" %}
+<div class="container container--app page-body">
+  <p class="page-intro">Where the trip stays each night, with the weather, what's planned, and the metro or a taxi to and from the trains and flights.{% if not full %} Stays show the city and dates rather than the hotel, and only the public ones show how to get there.{% endif %}</p>
+  <ol class="card-grid">
+    {% for stay in stays %}
+    <li class="stay-card" id="stay-{{ stay.pk }}">
+      <div class="stay-card__head">
+        <div>
+          {% if stay.city_only %}
+          <h2 class="stay-card__title">{{ stay.city_label }}{% if stay.city_local %} <span class="local" lang="zh">{{ stay.city_local }}</span>{% endif %}</h2>
+          {% else %}
+          <h2 class="stay-card__title">{{ stay.label }}{% if stay.city and stay.city.name not in stay.label %} <span class="muted">· {{ stay.city.name }}</span>{% endif %}{% if stay.city.name_local %} <span class="local" lang="zh">{{ stay.city.name_local }}</span>{% endif %}</h2>
+          {% endif %}
+          <p class="small muted">Day {{ stay.first_day }}{% if stay.last_day != stay.first_day %}–{{ stay.last_day }}{% endif %}{% if full or not trip.hide_dates %} · {{ stay.check_in_date|date:"D j M" }} – {{ stay.check_out_date|date:"D j M" }}{% endif %} · {{ stay.nights }} night{{ stay.nights|pluralize }}</p>
+        </div>
+        {% if full and not stay.is_public %}<span class="badge">Private</span>{% endif %}
+      </div>
+      {% if stay.show_times and stay.check_in_time or stay.show_times and stay.check_out_time %}<p class="small">{% if stay.check_in_time %}Check in {{ stay.check_in_time|time:"H:i" }}{% endif %}{% if stay.check_in_time and stay.check_out_time %} · {% endif %}{% if stay.check_out_time %}Check out {{ stay.check_out_time|time:"H:i" }}{% endif %}</p>{% endif %}
+      {% if stay.weather_text %}<p class="small weather">{{ stay.weather_text }}</p>{% endif %}
+      {% if stay.planned %}<p class="small"><a href="{{ urls.activities }}">{{ stay.planned|length }} activit{{ stay.planned|length|pluralize:"y,ies" }}</a>: {% for item in stay.planned|slice:":3" %}{{ item.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if stay.planned|length > 3 %} and {{ stay.planned|length|add:"-3" }} more{% endif %}</p>{% endif %}
+      {% if stay.city_only %}<p class="small muted">The hotel and how to get there are private.</p>{% endif %}
+      {% if full %}{% if stay.name or stay.address %}<p class="small">{% if stay.url %}<a href="{{ stay.url }}" target="_blank" rel="noopener nofollow">{{ stay.name|default:"Property page" }}</a>{% else %}{{ stay.name }}{% endif %}{% if stay.address %}<br><span class="muted">{{ stay.address }}</span>{% endif %}</p>{% endif %}{% endif %}
+      {% with m=stay.metro_view %}{% if m %}
+      {% if m.station %}
+      <p class="station-row">
+        <span class="muted">Nearest metro</span>
+        {% if m.station.url %}<a href="{{ m.station.url }}" target="_blank" rel="noopener noreferrer">{{ m.station.name }}</a>{% else %}<strong>{{ m.station.name }}</strong>{% endif %}{% if m.station.local %} <span class="local" lang="zh">{{ m.station.local }}</span>{% endif %}
+        {% for line in m.station.lines %}<span class="line-chip"{% if line.colour %} style="--line: {{ line.colour }};{% if line.text %} --line-text: {{ line.text }};{% endif %}"{% endif %}>{{ line.name }}</span>{% endfor %}
+        {% if m.station.exit %}<span class="muted">Exit {{ m.station.exit }}{% if m.station.distance %} · {{ m.station.distance }}{% endif %}</span>{% elif m.station.distance %}<span class="muted">{{ m.station.distance }}</span>{% endif %}
+      </p>
+      {% endif %}
+      {% if m.arrival or m.arrival_taxi or m.departure or m.departure_taxi %}
+      <ul class="ways">
+        {% if m.arrival %}<li><span class="ways__label">Arrive</span><span>Metro from {{ m.arrival.station }}{% with r=m.arrival.route %}{% if r %} · {{ r.duration }}{% if r.fare %} · {{ r.fare }}{% endif %}{% endif %}{% endwith %}</span></li>
+        {% elif m.arrival_taxi %}<li><span class="ways__label">Arrive</span><span>{% if m.arrival_taxi.walk %}Walk from {{ m.arrival_taxi.place }} · about {{ m.arrival_taxi.walk }}{% else %}Taxi from {{ m.arrival_taxi.place }} · about {{ m.arrival_taxi.minutes }} min ({{ m.arrival_taxi.km }} km){% endif %}</span></li>{% endif %}
+        {% if m.departure and not m.departure.same %}<li><span class="ways__label">Leave</span><span>Metro to {{ m.departure.station }}{% with r=m.departure.route %}{% if r %} · {{ r.duration }}{% if r.fare %} · {{ r.fare }}{% endif %}{% endif %}{% endwith %}</span></li>
+        {% elif m.departure_taxi %}<li><span class="ways__label">Leave</span><span>{% if m.departure_taxi.walk %}Walk to {{ m.departure_taxi.place }} · about {{ m.departure_taxi.walk }}{% else %}Taxi to {{ m.departure_taxi.place }} · about {{ m.departure_taxi.minutes }} min ({{ m.departure_taxi.km }} km){% endif %}</span></li>{% endif %}
+      </ul>
+      {% if m.arrival.route or m.departure.route %}
+      <details class="steps">
+        <summary>Metro steps</summary>
+        {% if m.arrival %}{% include "journeys/_stay_way.html" with t=m.arrival label="Arriving" arriving=True station=m.station.name %}{% endif %}
+        {% if m.departure and not m.departure.same %}{% include "journeys/_stay_way.html" with t=m.departure label="Leaving" station=m.station.name %}{% endif %}
+      </details>
+      {% endif %}
+      {% endif %}
+      {% endif %}{% endwith %}
+    </li>
+    {% empty %}
+    <li class="stay-card"><p class="muted">No stays to show yet.</p></li>
+    {% endfor %}
+  </ol>
+</div>
+{% endblock %}
+
+{% block footer_extra %}<p>Metro routes: <a href="https://www.metroman.cn/en/maps">MetroMan</a> · Station positions © OpenStreetMap contributors{% if timetable_credits %} · Timetables: {{ timetable_credits }} (CC BY 4.0){% endif %} · Taxi times: OSRM</p>{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/trip-page.js' %}"></script>{% endblock %}

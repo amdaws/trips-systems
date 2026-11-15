@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Activities · {{ trip.title }} · {{ site.name }}{% endblock %}
+{% block description %}Things to see and do on {{ trip.title }}.{% endblock %}
+{% block extra_head %}{% if unlisted %}<meta name="robots" content="noindex, nofollow">{% endif %}{% endblock %}
+{% block header_width %}container--app{% endblock %}
+{% block footer_width %}container--app{% endblock %}
+
+{% block content %}
+{% include "journeys/_trip_header.html" %}
+<div class="container container--app page-body">
+  <p class="page-intro">Sights and plans by day, with the metro or a taxi from that night's hotel.</p>
+  <div class="activity-days">
+    {% for group in days %}
+    <section class="activity-day">
+      <h2 class="activity-day__title">{{ group.label }}{% if full or not trip.hide_dates %} · Day {{ group.day.number }}{% endif %}{% if group.night %} <span class="muted">· {{ group.night.name }}</span>{% endif %}</h2>
+      <ul class="activity-list">
+        {% for item in group.items %}
+        <li class="activity" id="activity-{{ item.pk }}">
+          <div class="activity__row">
+            <span class="activity__title">{{ item.title }}{% if item.start_time %} <span class="muted">{{ item.start_time|time:"H:i" }}</span>{% endif %}</span>
+            {% with d=item.directions_view %}{% if d %}
+            <span class="activity__hint">{% if d.metro %}Metro {{ d.metro.from }} → {{ d.metro.to }} · {{ d.metro.route.duration }}{% elif d.taxi %}Taxi · about {{ d.taxi.minutes }} min{% elif d.walk %}Walk · about {{ d.walk }}{% else %}{{ d.message }}{% endif %}</span>
+            {% endif %}{% endwith %}
+            {% if not item.is_public %}<span class="badge">Private</span>{% endif %}
+          </div>
+          {% if item.description %}<p class="small">{{ item.description|linebreaksbr }}</p>{% endif %}
+          {% if item.place and item.place.kind != "hotel" %}<p class="small muted">{{ item.place.name }}{% if item.place.name_local %} <span class="local" lang="zh">{{ item.place.name_local }}</span>{% endif %}{% if item.address %} · {{ item.address }}{% endif %}</p>{% endif %}
+          {% with links=item.link_list %}{% if links %}<p class="entry__links small">{% for link in links %}<a href="{{ link.url }}" target="_blank" rel="noopener nofollow">{{ link.label }}</a>{% endfor %}</p>{% endif %}{% endwith %}
+          {% if item.directions_view.metro %}
+          <details class="steps">
+            <summary>Steps</summary>
+            {% include "journeys/_directions.html" %}
+          </details>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% empty %}
+    <section class="activity-day"><p class="muted">No activities to show yet.</p></section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block footer_extra %}<p>Metro routes: <a href="https://www.metroman.cn/en/maps">MetroMan</a>{% if timetable_credits %} · Timetables: {{ timetable_credits }} (CC BY 4.0){% endif %} · Taxi times: OSRM</p>{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/trip-page.js' %}"></script>{% endblock %}

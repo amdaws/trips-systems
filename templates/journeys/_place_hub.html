@@ -1,0 +1,1 @@
+{{ place.name }}{% if place.name_local and place.name_local != place.name %} <span lang="zh">{{ place.name_local }}</span>{% endif %}{% with py=place.pinyin %}{% if py %} <span class="pinyin">({{ py }})</span>{% endif %}{% endwith %}

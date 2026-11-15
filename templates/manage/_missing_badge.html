@@ -1,0 +1,2 @@
+{# On a planned stay, transport or activity's row, when its booking link left details out (booking_costs.missing_details). #}
+{% if plan.missing %}<br><span class="badge badge--amber" title="Missing: {{ plan.missing|join:', ' }}">Missing {{ plan.missing|length }} detail{{ plan.missing|length|pluralize }}</span>{% endif %}

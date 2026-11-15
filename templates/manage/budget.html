@@ -1,0 +1,76 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Budget · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>Budget</h2>
+  <a class="btn btn--primary" href="{% url 'manage:budget_create' trip.pk %}">Add an item</a>
+</div>
+
+<div class="grid kpis">
+  <div class="card kpi stack"><span class="small muted">Estimated (AUD)</span><strong>${{ totals.estimate|floatformat:"2g" }}</strong><span class="small muted">Paid so far{% if totals.planned %}, plus ${{ totals.planned|floatformat:"2g" }} estimated for planned items{% endif %}{% if totals.per_person_estimate is not None %} · ${{ totals.per_person_estimate|floatformat:"2g" }} per person{% endif %}</span></div>
+  <div class="card kpi stack"><span class="small muted">Spent (AUD)</span><strong>${{ totals.actual|floatformat:"2g" }}</strong>{% if totals.per_person is not None %}<span class="small muted">${{ totals.per_person|floatformat:"2g" }} per person</span>{% endif %}</div>
+  <div class="card kpi stack"><span class="small muted">Paid by</span>{% for traveller, amount in totals.paid_by %}<span><strong style="display:inline;font-size:var(--step-0)">{{ traveller.initials }}</strong> ${{ amount|floatformat:"2g" }}</span>{% empty %}<span class="muted small">Add travellers in Settings</span>{% endfor %}</div>
+</div>
+
+<p class="small muted">The estimate is everything paid so far plus the estimated cost of each stay, transport and activity that's still planned (its Cost, on its own form). Once it's booked, what it cost counts instead.</p>
+
+{% if totals.missing_rates %}<p class="alert alert--warning">{{ totals.missing_rates|length }} item(s) are waiting for an exchange rate. Use "Update rates now" below.</p>{% endif %}
+
+{% if totals.count %}
+<form id="bulk-form" method="post" action="{% url 'manage:budget_bulk' trip.pk %}" class="bulk-bar" data-bulk-bar>
+  {% csrf_token %}
+  <label class="bulk-bar__all"><input type="checkbox" data-bulk-all> <span data-bulk-count>Select all</span></label>
+  <div class="bulk-bar__actions">
+    <span class="bulk-bar__move">
+      <label class="visually-hidden" for="bulk-paid-by">Paid by</label>
+      <select id="bulk-paid-by" name="paid_by" class="input input--small" data-bulk-action>
+        <option value="">Paid by…</option>
+        {% for traveller in totals.travellers %}<option value="{{ traveller.pk }}">{{ traveller.initials }}{% if traveller.name and traveller.name != traveller.initials %} · {{ traveller.name }}{% endif %}</option>{% endfor %}
+        <option value="none">Nobody (clear it)</option>
+      </select>
+      <button type="submit" class="btn btn--small" name="action" value="paid_by" data-bulk-action>Set paid by</button>
+    </span>
+    <button type="button" class="btn btn--small btn--subtle" data-bulk-clear data-bulk-action>Clear</button>
+  </div>
+  <p class="small bulk-bar__note" data-bulk-note aria-live="polite"></p>
+</form>
+{% endif %}
+
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th class="bulk-cell"><span class="visually-hidden">Select</span></th><th>Item</th><th>Status</th><th class="num">Estimate</th><th class="num">Cost</th><th>Paid by</th><th></th></tr></thead>
+    {% for group in totals.categories %}
+    <tbody>
+      <tr><th colspan="7">{{ group.label }} <span class="muted" style="font-weight:400">· est. ${{ group.estimate|floatformat:"2g" }} · spent ${{ group.actual|floatformat:"2g" }}</span></th></tr>
+      {% for item in group.items %}
+      <tr data-bulk-row>
+        <td class="bulk-cell"><input type="checkbox" class="bulk-check" form="bulk-form" name="lines" value="{{ item.pk }}" data-bulk-item aria-label="Select {{ item.description }}"></td>
+        <td>{{ item.description }}{% if item.stay %}<br><span class="small muted">{{ item.stay }}</span>{% endif %}{% if item.leg %}<br><span class="small muted">{{ item.leg }}</span>{% endif %}{% if item.item %}<br><span class="small muted">{{ item.item }}</span>{% endif %}</td>
+        <td>{% if item.plan %}{% include "manage/_status_badge.html" with plan=item.plan %}{% endif %}</td>
+        <td class="num">{% if item.is_planned_estimate %}{% if item.estimate_currency != "AUD" %}{{ item.estimate|floatformat:"2g" }} {{ item.estimate_currency }}<br><span class="small muted">{% endif %}${{ item.estimate_aud|floatformat:"2g"|default:"?" }}{% if item.estimate_currency != "AUD" %}</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+        <td class="num">{% if item.actual is not None %}{% if item.actual_currency != "AUD" %}{{ item.actual|floatformat:"2g" }} {{ item.actual_currency }}<br><span class="small muted">{% endif %}${{ item.actual_aud|floatformat:"2g"|default:"?" }}{% if item.actual_currency != "AUD" %}</span>{% endif %}{% else %}—{% endif %}</td>
+        <td>{{ item.paid_by.initials|default:"" }}</td>
+        <td class="num"><a class="btn btn--small" href="{% url 'manage:budget_edit' trip.pk item.pk %}">Edit</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% endfor %}
+    <tfoot><tr><td></td><td>Total (AUD)</td><td></td><td class="num">${{ totals.estimate|floatformat:"2g" }}<br><span class="small muted">estimated</span></td><td class="num">${{ totals.actual|floatformat:"2g" }}<br><span class="small muted">spent</span></td><td colspan="2"></td></tr></tfoot>
+  </table>
+</div>
+
+<section class="card card--flat stack" style="--stack: var(--space-xs)">
+  <div class="toolbar">
+    <h3>Exchange rates</h3>
+    <form method="post" action="{% url 'manage:refresh_rates' trip.pk %}">{% csrf_token %}<button class="btn btn--small" type="submit">Update rates now</button></form>
+  </div>
+  {% if rates %}
+  <p class="small">1 AUD = {% for rate in rates %}{{ rate.per_aud|floatformat:"4" }} {{ rate.currency }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+  <p class="small muted">Rates from {{ rates_date|date:"j M Y" }}. Amounts convert at the rate on the date paid (or the latest rate). <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates by Exchange Rate API</a>.</p>
+  {% else %}
+  <p class="small muted">No rates yet; they update automatically once a day.</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,8 @@
+{# Public / Private switch for a leg, stay or activity. Needs `action` and `on` (public). #}
+<form method="post" action="{{ action }}" class="inline-form">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+  <button type="submit" class="switch" role="switch" aria-checked="{% if on %}true{% else %}false{% endif %}" title="{% if on %}Public: anyone can see it. Click to make it private{% else %}Private: only you and the secret link. Click to make it public{% endif %}">
+    <span class="switch__track" aria-hidden="true"></span> {% if on %}Public{% else %}Private{% endif %}
+  </button>
+</form>

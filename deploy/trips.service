@@ -1,0 +1,45 @@
+[Unit]
+Description=trips.aarondaws.com.au (Django via gunicorn)
+After=network.target
+
+[Service]
+User=trips
+Group=trips
+WorkingDirectory=/srv/trips/app
+EnvironmentFile=/etc/trips/trips.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/srv/trips/venv/bin/gunicorn config.wsgi:application \
+    --bind 127.0.0.1:8001 --workers 2 --threads 2 --timeout 30 \
+    --max-requests 1000 --max-requests-jitter 100
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+
+# Sandboxing: the app can only write to its database folder.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/trips
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

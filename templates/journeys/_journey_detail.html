@@ -1,0 +1,56 @@
+{# One journey in the trip page's details panel (shown when it's picked in the day list or on the map). #}
+<article class="journey-detail" data-journey-detail="{{ leg.pk }}" hidden>
+  <header class="journey-detail__head">
+    <div class="journey-detail__heading">
+      <span class="mode mode--{{ leg.mode_class }}">{{ leg.mode_label }}{% if leg.shown_number %} · {{ leg.shown_number }}{% endif %}</span>
+      <h2 class="journey-detail__title">{% if leg.same_city %}{{ leg.origin.city_name }}{% else %}{{ leg.origin.city_name }} → {{ leg.destination.city_name }}{% endif %}</h2>
+      <p class="small muted">{{ leg.day_label }}{% if full or not trip.hide_dates %} · Day {{ leg.day_number }}{% endif %}{% if full and not leg.is_public %} <span class="badge">Private</span>{% endif %}</p>
+    </div>
+    <button type="button" class="icon-btn" data-close-journey aria-label="Close journey details">
+      <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 5l10 10M15 5L5 15"/></svg>
+    </button>
+  </header>
+
+  <div class="times-card">
+    <div>
+      <span class="times-card__label">Departs</span>
+      <span class="times-card__time">{% if leg.shown_depart %}{% if leg.rough %}~{% endif %}{{ leg.shown_depart }}{% else %}—{% endif %}</span>
+      <span class="times-card__hub">{% include "journeys/_place_hub.html" with place=leg.origin %}</span>
+    </div>
+    <span class="times-card__duration">{% if leg.shown_duration %}{% if leg.rough %}about {% endif %}{{ leg.shown_duration }}{% else %}Time to come{% endif %}</span>
+    <div class="times-card__end">
+      <span class="times-card__label">Arrives</span>
+      <span class="times-card__time">{% if leg.shown_arrive %}{% if leg.rough %}~{% endif %}{{ leg.shown_arrive }}{% if leg.shown_next_day %}<small> +1</small>{% endif %}{% else %}—{% endif %}</span>
+      <span class="times-card__hub">{% include "journeys/_place_hub.html" with place=leg.destination %}</span>
+    </div>
+  </div>
+
+  {% if leg.mode == "flight" %}
+  <div class="live-flight" data-live-detail="{{ leg.pk }}" hidden>
+    <p class="live-flight__status"><span class="live-flight__dot" aria-hidden="true"></span><span data-live-text></span></p>
+    <p class="small muted" data-live-facts></p>
+    <button type="button" class="btn" data-live-show="{{ leg.pk }}">Show the plane</button>
+    <p class="small muted">Live position from <a href="https://adsb.lol/">adsb.lol</a> (ODbL), where its volunteer receivers can hear the plane.</p>
+  </div>
+  {% endif %}
+
+  <div class="journey-detail__actions">
+    <button type="button" class="btn btn--primary" data-animate-leg="{{ leg.pk }}"><svg aria-hidden="true" viewBox="0 0 20 20"><path d="M6 4.5l9.5 5.5L6 15.5z" fill="currentColor"/></svg>Play route</button>
+    <button type="button" class="btn" data-show-day="{{ leg.day_number }}">Show this day</button>
+    {% if leg.operator %}<span class="journey-detail__operator">{{ leg.operator }}</span>{% endif %}
+  </div>
+  {% if leg.public_note %}<p class="small">{{ leg.public_note }}</p>{% endif %}
+
+  {% for t in leg.transfers.before %}{% include "journeys/_transfer.html" with show_map_buttons=True %}{% endfor %}
+  {% for t in leg.transfers.after %}{% include "journeys/_transfer.html" with show_map_buttons=True %}{% endfor %}
+
+
+  {% if user.is_staff %}
+  <form method="post" action="{% url 'manage:leg_toggle' trip.pk leg.pk %}" class="visibility-row">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <span class="visibility-row__text"><strong>{% if leg.is_public %}Visible to everyone{% else %}Only you and the secret link{% endif %}</strong><span class="small muted">{% if leg.is_public %}Visitors see rounded times and no number{% else %}Switch on to show it on the trip page{% endif %}</span></span>
+    <button type="submit" class="switch" role="switch" aria-checked="{% if leg.is_public %}true{% else %}false{% endif %}"><span class="switch__track" aria-hidden="true"></span> {% if leg.is_public %}Public{% else %}Private{% endif %}</button>
+  </form>
+  {% endif %}
+</article>

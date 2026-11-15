@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block title %}Legals · {{ site.name }}{% endblock %}
+{% block description %}The privacy policy, terms and conditions, and credits for {{ site.name }}.{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <article class="legal">
+      <header class="legal__head">
+        <p class="eyebrow">Legals</p>
+        <h1>Legals</h1>
+        <p class="page-intro">How this site handles your information, the terms for using it, and where its maps and data come from. Last updated <time datetime="2026-10-31">31 October 2026</time>.</p>
+        <nav class="legal__toc" aria-label="On this page">
+          <p class="small muted">On this page</p>
+          <ol>
+            <li><a href="#privacy">Privacy policy</a></li>
+            <li><a href="#terms">Terms and conditions</a></li>
+            <li><a href="#credits">Credits and data licences</a></li>
+            <li><a href="#contact">Contact</a></li>
+          </ol>
+        </nav>
+      </header>
+
+      <section class="legal__part" aria-labelledby="privacy">
+        <h2 id="privacy">Privacy policy</h2>
+        <p>{{ site.name }} is a personal, non-commercial travel site run by Aaron Daws from Queensland, Australia. This policy explains what the site records when you visit and what it does with it. It's a small personal site that may not be covered by the <i>Privacy Act 1988</i> (Cth), but it aims to follow the Australian Privacy Principles anyway.</p>
+
+        <div class="legal__short">
+          <h3 id="privacy-short">The short version</h3>
+          <ul>
+            <li>You don't need an account, and there are no visitor cookies, analytics, advertising or tracking.</li>
+            <li>The server keeps a standard access log (including your IP address) for 30 days, then deletes it.</li>
+            <li>If you share your location with the journey planner, it's used for that one search and never stored, logged or passed on.</li>
+            <li>Nothing about you is sold, rented or shared for marketing.</li>
+          </ul>
+        </div>
+
+        <h3 id="privacy-records">What the site records</h3>
+        <p>Like most websites, the server keeps an <strong>access log</strong> of the requests it receives. For each one it records:</p>
+        <ul>
+          <li>your IP address</li>
+          <li>the date and time</li>
+          <li>the page or file asked for</li>
+          <li>the standard details your browser sends with every request, such as the browser and device type, your language and the page that linked here</li>
+        </ul>
+        <p>The log is used only to keep the site secure and working, for example to spot abuse or fix a fault. It isn't used to build a profile of you. A new log is started each day and logs are <strong>deleted automatically after 30 days</strong>.</p>
+        <p>The site also keeps a technical error log of what went wrong and on which page, but not who you are.</p>
+        <p>To keep the journey planner within its fair-use limits, each visitor's searches are counted for one minute, in the server's memory only. The count is kept under a scrambled, one-way form of the IP address, and it's forgotten within about a minute.</p>
+
+        <h3 id="privacy-location">Your location and the journey planner</h3>
+        <p>The journey planner only uses your location if you tap <strong>My location</strong> and your browser asks you and you agree. Your position, and the places you choose or search for:</p>
+        <ul>
+          <li>are sent securely inside the request, never in the page address, so they don't appear in the access log</li>
+          <li>are used to work out that one answer and then discarded</li>
+          <li>are never saved, logged or given to anyone else</li>
+        </ul>
+        <p>Journeys, walks and drives in Australian cities are worked out on this server. Two searches use outside services, and in both cases the request comes from this server, so neither service sees your IP address or position:</p>
+        <ul>
+          <li>When you search for a place by name, the words you type are sent to <a href="https://photon.komoot.io/">Photon</a> (run by komoot in Germany), along with the general area of the city you're searching in.</li>
+          <li>When you look up trains in China, the stations and date you pick are sent to <a href="https://www.12306.cn/en/index.html">China Railway 12306</a>.</li>
+        </ul>
+
+        <h3 id="privacy-sharing">Share links and calendar files</h3>
+        <p>When you share a journey, its details travel inside the link itself, in the part after the <code>#</code>. Browsers don't send that part to the server, so the site never receives or stores what you share. Anyone you send the link to can see the journey in it.</p>
+        <p><strong>Add to calendar</strong> builds the calendar file on your own device.</p>
+
+        <h3 id="privacy-cookies">Cookies and storage on your device</h3>
+        <p>The site sets <strong>no cookies</strong> for visitors. Your browser may keep two optional settings on your device:</p>
+        <ul>
+          <li>your choice of light or dark theme</li>
+          <li>your journey planner choices, if you tick <strong>Remember my choices</strong></li>
+        </ul>
+        <p>These settings stay on your device and are never sent to the site. Clearing this site's data in your browser removes them. Signing in, which only the site's owner does, uses a session cookie and a security cookie.</p>
+
+        <h3 id="privacy-services">Services that see your visit</h3>
+        <ul>
+          <li><strong>Cloudflare</strong> sits in front of the site to protect it and make it faster, so every request passes through Cloudflare's worldwide network, which sees your IP address and request. If Cloudflare needs to check you're not a bot, it may set a security cookie of its own. See <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>.</li>
+          <li><strong>Map images</strong> load straight from <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'s tile servers, and on trip maps from <a href="https://www.openrailwaymap.org/">OpenRailwayMap</a>. Like any website, those servers see your IP address and which part of the map you're looking at. See the <a href="https://osmfoundation.org/wiki/Privacy_Policy">OpenStreetMap Foundation's privacy policy</a>.</li>
+          <li><strong>Hosting:</strong> the site and its logs are kept on a server in Sydney, Australia (Amazon Web Services).</li>
+        </ul>
+        <p>Links to other websites, such as booking sites and transport operators, take you to sites with their own privacy policies.</p>
+
+        <h3 id="privacy-trips">Trip pages and the people in them</h3>
+        <p>Trip pages are published on purpose and show only general plans. They never show:</p>
+        <ul>
+          <li>booking references or costs</li>
+          <li>private notes</li>
+          <li>hotel names, addresses or map pins</li>
+          <li>flight or train numbers</li>
+        </ul>
+        <p>Times on them are rounded. While a flight shown on a trip page is in the air, the page also shows where the plane is (from <a href="https://adsb.lol/">adsb.lol</a>), still without its flight number. Trips that hide their dates don't show this to visitors.</p>
+        <p>The private planner behind the site holds the owner's own bookings and travel documents, and only the owner can open it. To show things like weather, flight paths and timetables, the planner sends places, dates and flight numbers to the services listed under <a href="#credits">Credits</a>, but never anything about visitors.</p>
+        <p>If you're mentioned on a trip page and would like something changed or removed, please get in touch.</p>
+
+        <h3 id="privacy-rights">Your choices</h3>
+        <p>You can ask what information the site holds about you, and ask for it to be corrected or deleted. As the site holds almost nothing about visitors, this usually means access-log entries. To find yours, include roughly when you visited and your IP address if you know it. You'll get a reply within 30 days.</p>
+        <p>If you're not happy with how a privacy concern was handled, you can contact the <a href="https://www.oaic.gov.au/">Office of the Australian Information Commissioner</a>.</p>
+
+        <h3 id="privacy-changes">Changes to this policy</h3>
+        <p>If this policy changes, the date at the top of this page changes too, and the change is listed on the <a href="{% url 'core:changelog' %}">What's new</a> page.</p>
+      </section>
+
+      <section class="legal__part" aria-labelledby="terms">
+        <h2 id="terms">Terms and conditions</h2>
+        <p>These terms apply to anyone using {{ site.name }}, including the trip pages and the journey planner. By using the site you agree to them. If you don't agree, please don't use the site.</p>
+
+        <h3 id="terms-site">The site</h3>
+        <p>This is a free, personal, non-commercial site run by Aaron Daws. It's provided as it is, and any part of it, including the journey planner, may be changed, paused or removed at any time without notice.</p>
+
+        <h3 id="terms-travel">Travel information</h3>
+        <p>Everything on this site is general information for planning only. It isn't travel advice. Much of it comes from other organisations or is worked out automatically, so it may be incomplete, wrong or out of date. That includes:</p>
+        <ul>
+          <li>timetables and live times</li>
+          <li>live flight positions, which can be late, missing or estimated where no receiver can hear the plane</li>
+          <li>journey plans and walking and driving routes</li>
+          <li>travel times</li>
+          <li>step-free information</li>
+          <li>China train schedules</li>
+          <li>weather and currency conversions</li>
+        </ul>
+        <p>In particular:</p>
+        <ul>
+          <li>Driving routes and times don't allow for live traffic, roadworks, closures or turning restrictions.</li>
+          <li>Step-free journeys only use stops that the operator's own data marks as accessible, and that data can be incomplete.</li>
+          <li>China trains beyond the 15 days that 12306 is selling are estimated from the same day of an earlier week.</li>
+          <li>Trip pages describe Aaron's own plans, which may change. They aren't recommendations.</li>
+        </ul>
+        <p>Always check with the transport operator, venue or other official source before you travel. For safety advice, see <a href="https://www.smartraveller.gov.au/">Smartraveller</a>.</p>
+
+        <h3 id="terms-fair-use">Using the journey planner fairly</h3>
+        <p>The journey planner is free for personal, non-commercial use. It depends on free public services, so please don't:</p>
+        <ul>
+          <li>scrape it or send automated or bulk searches</li>
+          <li>build it into another product, or resell or republish its results</li>
+          <li>try to get around its limits, overload it or test its security</li>
+        </ul>
+        <p>Each visitor can make a set number of searches a minute. Access may be limited or blocked to keep the planner working for everyone.</p>
+
+        <h3 id="terms-links">Links to other sites, and no affiliate links</h3>
+        <p>Links to booking sites, transport operators and other sites (such as Trip.com, China Railway 12306, Translink, PTV and Transport for NSW) are there for convenience only. Their own terms apply, and this site isn't responsible for their content, prices or services.</p>
+        <p>This site has <strong>no affiliate links</strong>:</p>
+        <ul>
+          <li>It earns no commission, referral fee or payment of any kind from the links.</li>
+          <li>It carries no advertising and isn't sponsored.</li>
+          <li>It isn't connected to, or endorsed by, any of the companies it links to.</li>
+        </ul>
+
+        <h3 id="terms-content">Content and copyright</h3>
+        <p>Unless another source is credited, the text, photos and design of this site are © Aaron Daws. You're welcome to link to any page and to share pages and journeys for personal use. Please don't copy or republish substantial parts of the site without permission. Maps, timetables and other data belong to their providers and are used under the licences listed under <a href="#credits">Credits</a>.</p>
+
+        <h3 id="terms-liability">Liability</h3>
+        <p>As far as the law allows, Aaron Daws isn't liable for any loss, cost or damage from using the site, or from relying on anything on it. That includes indirect or consequential loss, missed connections and changed travel plans.</p>
+        <p>Nothing in these terms excludes, restricts or changes any right or remedy you have under the Australian Consumer Law, or any other law, that can't lawfully be excluded.</p>
+
+        <h3 id="terms-law">Governing law</h3>
+        <p>These terms are governed by the laws of Queensland, Australia, and you agree to the non-exclusive jurisdiction of the courts of Queensland.</p>
+
+        <h3 id="terms-changes">Changes to these terms</h3>
+        <p>These terms may be updated from time to time. The date at the top of this page shows when they last changed. If you keep using the site after a change, you agree to the updated terms.</p>
+      </section>
+
+      <section class="legal__part" aria-labelledby="credits">
+        <h2 id="credits">Credits and data licences</h2>
+        <p>This site is built on open data and the work of many people. Thank you to:</p>
+        <dl class="legal__credits">
+          <dt>Maps, places, roads and footpaths</dt>
+          <dd>© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, available under the Open Database Licence (ODbL). Map images come from the OpenStreetMap Foundation's tile servers. Road and footpath data comes through the <a href="https://overpass-api.de/">Overpass API</a> and <a href="https://download.bbbike.org/osm/">BBBike</a> extracts.</dd>
+
+          <dt>Railway map overlay</dt>
+          <dd><a href="https://www.openrailwaymap.org/">OpenRailwayMap</a> (CC BY-SA), built on OpenStreetMap data.</dd>
+
+          <dt>Place search</dt>
+          <dd><a href="https://photon.komoot.io/">Photon</a> by komoot and <a href="https://nominatim.org/">Nominatim</a>, both using OpenStreetMap data.</dd>
+
+          <dt>Timetables and live times</dt>
+          <dd>Translink (Queensland Government), Transport Victoria and Transport for NSW, each under the Creative Commons Attribution 4.0 licence (CC BY 4.0). Journeys are worked out on this site from their data; the operators don't endorse them.</dd>
+
+          <dt>China trains and metros</dt>
+          <dd><a href="https://www.12306.cn/en/index.html">China Railway 12306</a> for stations and train times, and <a href="https://www.metroman.cn/en/maps">MetroMan</a> for metro routes.</dd>
+
+          <dt>Flights and airports</dt>
+          <dd>Airport data from <a href="https://ourairports.com/">OurAirports</a> (public domain). Flight details from <a href="https://aerodatabox.com/">AeroDataBox</a>. Flight paths, and the positions of flights in the air, from <a href="https://adsb.lol/">adsb.lol</a> (ODbL), or flight paths from <a href="https://www.flightradar24.com/">Flightradar24</a>.</dd>
+
+          <dt>Taxi and bus routes on trip maps</dt>
+          <dd>The <a href="https://project-osrm.org/">Project OSRM</a> routing service, using OpenStreetMap data.</dd>
+
+          <dt>Weather</dt>
+          <dd><a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>, under CC BY 4.0.</dd>
+
+          <dt>Currency rates</dt>
+          <dd><a href="https://www.exchangerate-api.com/">Rates by Exchange Rate API</a>, used in the private planner.</dd>
+
+          <dt>Software</dt>
+          <dd><a href="https://www.djangoproject.com/">Django</a> (BSD licence) and <a href="https://leafletjs.com/">Leaflet</a> (BSD 2-Clause licence).</dd>
+        </dl>
+      </section>
+
+      <section class="legal__part" aria-labelledby="contact">
+        <h2 id="contact">Contact</h2>
+        <p>For anything about privacy, these terms or the site's content, email <a href="mailto:privacy@aarondaws.com.au">privacy@aarondaws.com.au</a>.</p>
+      </section>
+    </article>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Activities · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>Activities</h2>
+  <div class="btn-row">
+    <a class="btn" href="{% url 'manage:imports' %}?trip={{ trip.pk }}">Import a booking</a>
+    <a class="btn btn--primary" href="{% url 'manage:item_create' trip.pk %}?next={{ request.path|urlencode }}">Add a sight</a>
+  </div>
+</div>
+<p class="small muted">Sights and plans for each day. Add one from a map or web link, and how to get there from that night's hotel (metro from MetroMan, or a taxi time) is worked out in the background within a few minutes. Public activities appear on the trip's Activities page for anyone; private ones only for you and the secret link. Tick several to change or delete them together (shift-click ticks a run).</p>
+
+{% if days %}
+<form id="bulk-form" method="post" action="{% url 'manage:activities_bulk' trip.pk %}" class="bulk-bar" data-bulk-bar>
+  {% csrf_token %}
+  <label class="bulk-bar__all"><input type="checkbox" data-bulk-all> <span data-bulk-count>Select all</span></label>
+  <div class="bulk-bar__actions">
+    <button type="submit" class="btn btn--small" name="action" value="public" data-bulk-action>Make public</button>
+    <button type="submit" class="btn btn--small" name="action" value="private" data-bulk-action>Make private</button>
+    <span class="bulk-bar__move">
+      <label class="visually-hidden" for="bulk-day">Move to day</label>
+      <select id="bulk-day" name="day" class="input input--small" data-bulk-action>
+        <option value="">Move to day…</option>
+        {% for day in trip_days %}<option value="{{ day.pk }}">{{ day.date|date:"D j M" }} · Day {{ day.number }}{% if day.night %} · {{ day.night.name }}{% endif %}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn--small" name="action" value="move" data-bulk-action>Move</button>
+    </span>
+    <button type="submit" class="btn btn--small btn--danger" name="action" value="delete" data-bulk-action>Delete</button>
+    <button type="button" class="btn btn--small btn--subtle" data-bulk-clear data-bulk-action>Clear</button>
+  </div>
+  <p class="small bulk-bar__note" data-bulk-note aria-live="polite"></p>
+</form>
+{% endif %}
+
+{% for group in days %}
+<section class="card stack activity-day" style="--stack: var(--space-2xs)">
+  <div class="activity-day__head">
+    <input type="checkbox" class="bulk-check" data-bulk-group="{{ group.day.pk }}" aria-label="Select every activity on {{ group.day.date|date:'D j M' }}">
+    <h3 class="h4">{{ group.day.date|date:"D j M" }} · Day {{ group.day.number }}{% if group.night %} <span class="muted small">· overnight in {{ group.night.name }}</span>{% endif %}</h3>
+  </div>
+  <ul class="list-plain stack" style="--stack: var(--space-xs)">
+    {% for item in group.items %}
+    <li class="activity activity--selectable">
+      <input type="checkbox" class="bulk-check" form="bulk-form" name="items" value="{{ item.pk }}" id="pick-{{ item.pk }}" data-bulk-item data-day="{{ group.day.pk }}">
+      <div class="activity__content stack" style="--stack: .25rem">
+      <div class="cluster" style="justify-content: space-between">
+        <label for="pick-{{ item.pk }}"><strong>{{ item.title }}</strong>{% if item.start_time %} <span class="muted">{{ item.start_time|time:"H:i" }}</span>{% endif %}</label>
+        <span class="cluster small">
+          <span>{% include "manage/_status_badge.html" with plan=item %}{% include "manage/_plan_cost.html" with plan=item %}{% include "manage/_missing_badge.html" with plan=item %}</span>
+          {% include "manage/_confirm_button.html" with plan=item kind="item" %}
+          {% url 'manage:item_toggle' trip.pk item.pk as toggle_url %}{% include "manage/_visibility_toggle.html" with action=toggle_url on=item.is_public %}
+          <a href="{% url 'manage:item_edit' trip.pk item.pk %}?next={{ request.path|urlencode }}">Edit</a>
+          <a href="{% url 'manage:day' trip.pk group.day.date|date:'Y-m-d' %}">Day plan</a>
+        </span>
+      </div>
+      {% if item.place %}<p class="small muted">{{ item.place.name }}{% if item.place.name_local %} <span class="local">{{ item.place.name_local }}</span>{% endif %}{% if item.address %} · {{ item.address }}{% endif %}</p>{% elif item.address %}<p class="small muted">{{ item.address }}</p>{% else %}<p class="small muted">No location yet: edit it and add a place or a map link to get directions.</p>{% endif %}
+      {% with links=item.link_list %}{% if links %}<p class="entry__links small">{% for link in links %}<a href="{{ link.url }}" target="_blank" rel="noopener nofollow">{{ link.label }}</a>{% endfor %}</p>{% endif %}{% endwith %}
+      {% include "journeys/_directions.html" with private=True %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% empty %}
+<div class="card"><p class="muted">No activities yet. <a href="{% url 'manage:item_create' trip.pk %}?next={{ request.path|urlencode }}">Add the first sight</a>.</p></div>
+{% endfor %}
+{% endblock %}

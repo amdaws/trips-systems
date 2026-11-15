@@ -1,0 +1,21 @@
+{% comment %}
+One way in or out of a stay on the public Stays page: the metro journey (t is a hub view; station is the
+hotel's station) or a taxi (taxi=True). arriving: from the train, flight or boat to the hotel.
+{% endcomment %}
+<div class="transfer small">
+  <span class="transfer__label">{{ label }}{% if t.leg %} · {{ t.leg }}{% endif %}{% if t.place %} at {{ t.place }}{% endif %}</span>
+  {% if taxi %}
+  <span>{% if t.walk %}Walk: about {{ t.walk }}{% else %}Taxi {% if arriving %}from {{ t.place }} to {{ t.to }}{% else %}from {{ t.to }} to {{ t.place }}{% endif %}: about {{ t.minutes }} min ({{ t.km }} km) without traffic{% endif %}</span>
+  {% else %}
+  <span class="cluster">
+    <span>Metro {% if t.same %}at {{ t.station }}{% elif arriving %}{{ t.station }} → {{ station|default:"hotel" }}{% else %}{{ station|default:"hotel" }} → {{ t.station }}{% endif %}</span>
+    {% with r=t.route %}{% if r %}<span class="muted">{{ r.duration }}{% if r.fare %} · {{ r.fare }}{% endif %}{% if r.transfers %} · {{ r.transfers }}{% endif %}</span>{% endif %}{% endwith %}
+    <a href="{{ t.url }}" target="_blank" rel="noopener noreferrer">Metro map</a>
+  </span>
+  {% if t.route.rides %}
+  <ol class="rides list-plain">
+    {% for ride in t.route.rides %}<li><span class="line-chip"{% if ride.colour %} style="--line: {{ ride.colour }};{% if ride.text %} --line-text: {{ ride.text }};{% endif %}"{% endif %}>{{ ride.line }}</span> {{ ride.from }} → {{ ride.to }}{% if ride.count %} <span class="muted">({{ ride.count }})</span>{% endif %}</li>{% endfor %}
+  </ol>
+  {% endif %}
+  {% endif %}
+</div>

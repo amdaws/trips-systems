@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}What's new · {{ site.name }}{% endblock %}
+{% block description %}Every change to {{ site.name }}: new features, improvements and fixes, with times in AEST.{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="changelog">
+      <header class="changelog__head">
+        <p class="eyebrow">Change log</p>
+        <h1>What's new</h1>
+        <p class="page-intro">New features, improvements and fixes to the site, newest first. Times are AEST (UTC+10), Australian Eastern Standard Time, all year round.</p>
+        <ul class="changelog__summary" aria-label="Summary">
+          {% if deployed %}<li class="changelog__updated">System last updated <strong>{{ deployed }}</strong></li>{% endif %}
+          {% for kind in counts %}<li><span class="badge {{ kind.badge }}">{{ kind.count }} {{ kind.label|lower }}</span></li>{% endfor %}
+        </ul>
+      </header>
+
+      {% for day in days %}
+      <section class="changelog__day" aria-labelledby="day-{{ day.date|date:'Y-m-d' }}">
+        <h2 id="day-{{ day.date|date:'Y-m-d' }}">{{ day.label }}</h2>
+        <ol class="releases">
+          {% for release in day.releases %}
+          <li class="release">
+            <time class="release__time" datetime="{{ release.iso }}">{{ release.time }}</time>
+            <div class="release__body">
+              <h3>{{ release.title }}</h3>
+              <ul class="release__items">
+                {% for item in release.items %}
+                <li><span class="release__tags"><span class="badge {{ item.badge }}">{{ item.label }}</span><span class="release__area">{{ item.area }}</span></span><span>{{ item.text }}</span></li>
+                {% endfor %}
+              </ul>
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+      </section>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

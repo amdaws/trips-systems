@@ -1,0 +1,4 @@
+{# "Check:" links to timetables and fares, on the planner's Transport list and transport form only (not the itineraries). #}
+{% with links=leg.lookup_links %}{% if links %}
+<p class="entry__links no-print"><span class="muted">Check:</span>{% for label, url in links %} <a href="{{ url }}" target="_blank" rel="noopener nofollow">{{ label }}</a>{% endfor %}</p>
+{% endif %}{% endwith %}

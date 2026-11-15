@@ -1,0 +1,46 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Checklist · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>Checklist</h2>
+  <form method="post" action="{% url 'manage:checklist_ticket_reminders' trip.pk %}">{% csrf_token %}
+    <button class="btn btn--small" type="submit" title="One reminder per train, {{ trip.train_ticket_window }} days before it departs">Add train ticket reminders</button>
+  </form>
+</div>
+
+<section class="card stack">
+  <ul class="list-plain">
+    {% for item in items %}
+    <li class="row-item">
+      <form method="post" action="{% url 'manage:checklist_toggle' trip.pk item.pk %}" class="cluster" style="flex: 1 1 20rem">
+        {% csrf_token %}
+        <button class="btn btn--small" type="submit" aria-label="{% if item.done %}Mark as not done{% else %}Mark as done{% endif %}">{% if item.done %}✓ Done{% else %}Mark done{% endif %}</button>
+        <span class="{% if item.done %}done-text{% endif %}">{% if item.to_review and not item.done %}<span class="badge badge--amber">To review</span> {% endif %}{{ item.text }}{% if item.notes %}<br><span class="small muted">{{ item.notes }}</span>{% endif %}</span>
+      </form>
+      <span class="cluster small">
+        {% if item.due_date %}<span class="{% if not item.done and item.due_date < today %}overdue{% endif %}">Due {{ item.due_date|date:"D j M Y" }}</span>{% endif %}
+        {% if item.leg and item.days_before is not None %}<span class="muted">{{ item.days_before }} days before {{ item.leg.depart_date|date:"j M" }}</span>{% endif %}
+        {% if item.leg and item.to_review %}<a href="{% url 'manage:leg_edit' trip.pk item.leg.pk %}">Open the transport</a>{% endif %}
+        {% if item.stay %}<a href="{% url 'manage:stay_edit' trip.pk item.stay.pk %}">Open the stay</a>{% endif %}
+        {% if item.item %}<a href="{% url 'manage:item_edit' trip.pk item.item.pk %}">Open the activity</a>{% endif %}
+        <a href="{% url 'manage:checklist_edit' trip.pk item.pk %}">Edit</a>
+      </span>
+    </li>
+    {% empty %}
+    <li class="muted small">Nothing on the checklist yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<form method="post" class="form card stack">
+  {% csrf_token %}
+  <h3>Add a to-do</h3>
+  <div class="form-grid">
+    {% for field in form %}{% include "manage/_field.html" %}{% endfor %}
+  </div>
+  <div><button class="btn btn--primary" type="submit">Add</button></div>
+</form>
+<p class="small muted">Undone to-dos with dates appear in your private calendar feed with a 9am alert (see Settings).</p>
+{% endblock %}

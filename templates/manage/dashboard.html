@@ -1,0 +1,34 @@
+{% extends "manage/base.html" %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <div class="stack" style="--stack: .2rem">
+    <p class="eyebrow">Planner</p>
+    <h1 style="font-size: var(--step-3)">Your trips</h1>
+  </div>
+  <div class="btn-row">
+    <a class="btn btn--subtle" href="{% url 'core:changelog' %}">What's new</a>
+    <a class="btn" href="{% url 'manage:imports' %}">Bookings inbox{% if inbox_count %} <span class="badge badge--blue">{{ inbox_count }} new</span>{% endif %}</a>
+    <a class="btn btn--primary" href="{% url 'manage:trip_create' %}">New trip</a>
+  </div>
+</div>
+
+<div class="grid">
+  {% for trip in trips %}
+  <a class="card trip-card stack" href="{{ trip.get_manage_url }}">
+    <p class="cluster small">
+      <span class="badge {% if trip.visibility == 'public' %}badge--green{% elif trip.visibility == 'unlisted' %}badge--blue{% endif %}">{{ trip.visibility_short }}</span>
+      <span class="muted">{{ trip.start_date|date:"j M Y" }} – {{ trip.end_date|date:"j M Y" }}</span>
+    </p>
+    <h2>{{ trip.title }}</h2>
+    <p class="small muted">{{ trip.duration_days }} days · {{ trip.n_legs }} transport leg{{ trip.n_legs|pluralize }}</p>
+  </a>
+  {% empty %}
+  <div class="card card--flat stack">
+    <h2>No trips yet</h2>
+    <p class="muted">Start one with "New trip".</p>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

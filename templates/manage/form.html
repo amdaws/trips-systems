@@ -1,0 +1,68 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>{{ title }}</h2>
+  <a class="btn btn--small" href="{{ back }}">← Back</a>
+</div>
+{% if plan %}{% include "manage/_plan_origin.html" %}{% endif %}
+
+{% if quick_entry %}
+<div class="card card--flat stack" style="--stack: var(--space-2xs)">
+  <label for="quick-entry"><strong>Auto-fill</strong> <span class="muted small">Type or paste a flight or train in any format, then press Fill in (or Enter)</span></label>
+  <div class="cluster">
+    <input id="quick-entry" class="input" style="flex: 1 1 20rem" placeholder="CX156 Brisbane to Hong Kong 27 Dec 00:50 07:20   ·   Train: G388 0720hrs Hong Kong -> Shenzhenbei 0744hrs" data-parse-url="{% url 'manage:api_parse_leg' %}">
+    <button type="button" class="btn btn--primary" data-quick-fill>Fill in</button>
+  </div>
+  <p class="small" data-quick-status aria-live="polite"></p>
+  <p class="small muted">Tip: typing just a flight or train number in the form below also fills in what's already known about it.
+    Live flight schedules: {% if live_flights %}<strong>on</strong> (set the date first for the best match){% else %}off (no AeroDataBox key yet){% endif %}.</p>
+</div>
+{% endif %}
+
+{% if stay_import or activity_import or leg_import %}
+<div class="card card--flat stack" style="--stack: var(--space-2xs)" data-new="{% if creating %}1{% endif %}" data-page-import="{% if stay_import %}stay{% elif leg_import %}leg{% else %}activity{% endif %}"
+     data-url="{% if stay_import %}{% url 'manage:api_stay_extract' trip.pk %}{% elif leg_import %}{% url 'manage:api_leg_extract' trip.pk %}{% else %}{% url 'manage:api_activity_extract' trip.pk %}{% endif %}">
+  {% if stay_import %}
+  <label for="import-link"><strong>Fill from a hotel link</strong> <span class="muted small">Paste the property's page from Trip.com, Booking.com, Tripadvisor, Klook or its own website. A Booking.com link with your dates fills them in too.</span></label>
+  {% elif leg_import %}
+  <label for="import-link"><strong>Fill from a booking link</strong> <span class="muted small">A bus, coach, shuttle, private-car transfer or rail pass page, e.g. Trip.com's things-to-do, Klook, Booking.com taxis or 12Go</span></label>
+  {% else %}
+  <label for="import-link"><strong>Fill from a link</strong> <span class="muted small">An OpenStreetMap or Apple Maps link to the place, its Wikipedia article, or its page on Tripadvisor, Klook, Viator, Booking.com, Trip.com or its own website</span></label>
+  {% endif %}
+  <div class="cluster">
+    <input id="import-link" class="input" type="url" style="flex: 1 1 20rem" placeholder="{% if stay_import %}https://au.trip.com/hotels/…{% elif leg_import %}https://au.trip.com/things-to-do/detail/…{% else %}https://www.openstreetmap.org/…{% endif %}">
+    <button type="button" class="btn btn--primary" data-page-fill="link">Fill in</button>
+  </div>
+  <details>
+    <summary class="small">Site won't let it read the page? Paste the page text instead</summary>
+    <div class="stack" style="--stack: var(--space-2xs); margin-top: .5rem">
+      <p class="small muted">On the page in your browser: select all (Ctrl/⌘ + A), copy, and paste here.</p>
+      <textarea id="import-text" class="input" rows="4" placeholder="Paste the page text…"></textarea>
+      <div><button type="button" class="btn btn--small" data-page-fill="text">Fill in from text</button></div>
+    </div>
+  </details>
+  <p class="small" data-page-status aria-live="polite"></p>
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="form stack" {% if mode_kinds %}data-mode-kinds='{{ mode_kinds }}' data-trip="{{ trip.pk }}" data-parse-url="{% url 'manage:api_parse_leg' %}" data-journey-url="{% url 'manage:api_transit_journey' %}"{% endif %}>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert--error">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-grid">
+    {% for field in form %}{% include "manage/_field.html" %}{% endfor %}
+  </div>
+  <input type="hidden" name="next" value="{{ request.GET.next|default:'' }}">
+  <div class="toolbar">
+    <div class="btn-row">
+      <button class="btn btn--primary" type="submit">Save</button>
+      <a class="btn" href="{{ back }}">Cancel</a>
+    </div>
+    {% if delete_url %}<a class="btn btn--danger" href="{{ delete_url }}">Delete</a>{% endif %}
+  </div>
+  {% if leg and leg.path_message %}<p class="small muted">Route: {{ leg.get_path_source_display|default:"not drawn yet" }} · {{ leg.path_message }}</p>{% endif %}
+  {% if leg %}{% include "journeys/_lookup_links.html" %}{% endif %}
+</form>
+{% endblock %}

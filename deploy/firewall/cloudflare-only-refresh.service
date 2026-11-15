@@ -1,0 +1,29 @@
+# Fetches Cloudflare's current address ranges and reloads the web-port rules if they changed.
+# Installed as /etc/systemd/system/cloudflare-only-refresh.service, run by the .timer.
+[Unit]
+Description=Refresh Cloudflare's address ranges for the web-port firewall
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cloudflare-only-refresh
+# Runs as root for nftables, but can only change the firewall and write /etc.
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native

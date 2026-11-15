@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% include "core/_under_development.html" with eyebrow="Home" heading=site.name note="Trips and travel notes are on their way. Check back soon." %}
+
+{% if trips %}
+<section class="section" style="padding-block-start: 0">
+  <div class="container stack">
+    <h2>Trips</h2>
+    <div class="grid">
+      {% for trip in trips %}
+      <a class="card trip-card stack" href="{{ trip.get_public_url }}">
+        <p class="small muted">{% if trip.hide_dates %}{{ trip.duration_days }} days{% else %}{{ trip.start_date|date:"F Y" }} · {{ trip.duration_days }} days{% endif %}</p>
+        <h2>{{ trip.title }}</h2>
+        {% if trip.summary %}<p class="small muted">{{ trip.summary|truncatewords:28 }}</p>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

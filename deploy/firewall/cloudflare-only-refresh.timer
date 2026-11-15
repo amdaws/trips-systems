@@ -1,0 +1,11 @@
+# Weekly refresh of Cloudflare's address ranges: /etc/systemd/system/cloudflare-only-refresh.timer
+[Unit]
+Description=Weekly refresh of Cloudflare's address ranges for the web-port firewall
+
+[Timer]
+OnCalendar=weekly
+RandomizedDelaySec=6h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

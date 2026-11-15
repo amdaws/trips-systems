@@ -1,0 +1,3 @@
+{# Planned: Add confirmation (a link, pasted text or file fills in the confirmed details and books it). #}
+{# Booked: View confirmation, opening its confirmation link (Trip.com or similar) in a new tab. #}
+{% if plan.status == "planned" %}<a class="btn btn--small" href="{% url 'manage:confirm_booking' trip.pk kind plan.pk %}">Add confirmation</a>{% else %}{% with link=plan.confirmation_link %}{% if link %}<a class="btn btn--small" href="{{ link }}" target="_blank" rel="noopener nofollow">View confirmation</a>{% endif %}{% endwith %}{% endif %}

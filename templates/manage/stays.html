@@ -1,0 +1,49 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Stays · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>Stays</h2>
+  <div class="btn-row">
+    <a class="btn" href="{% url 'manage:imports' %}?trip={{ trip.pk }}">Import a booking</a>
+    <a class="btn btn--primary" href="{% url 'manage:stay_create' trip.pk %}">Add a stay</a>
+  </div>
+</div>
+<p class="small muted">Private: hotel names, addresses and booking numbers never appear on public pages. Metro maps by <a href="https://www.metroman.cn/en/maps" target="_blank" rel="noopener noreferrer">MetroMan</a>; station positions © OpenStreetMap contributors. Public stays appear on the trip's Stays page for anyone with the city, dates and metro or taxi directions, never the hotel's name or address.</p>
+{% if stays %}
+<form id="bulk-form" method="post" action="{% url 'manage:stays_bulk' trip.pk %}" class="bulk-bar" data-bulk-bar>
+  {% csrf_token %}
+  <label class="bulk-bar__all"><input type="checkbox" data-bulk-all> <span data-bulk-count>Select all</span></label>
+  <div class="bulk-bar__actions">
+    <button type="submit" class="btn btn--small" name="action" value="public" data-bulk-action>Make public</button>
+    <button type="submit" class="btn btn--small" name="action" value="private" data-bulk-action>Make private</button>
+    <button type="submit" class="btn btn--small btn--danger" name="action" value="delete" data-bulk-action>Delete</button>
+    <button type="button" class="btn btn--small btn--subtle" data-bulk-clear data-bulk-action>Clear</button>
+  </div>
+  <p class="small bulk-bar__note" data-bulk-note aria-live="polite"></p>
+</form>
+{% endif %}
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th class="bulk-cell"><span class="visually-hidden">Select</span></th><th>Stay</th><th>Dates</th><th class="num">Nights</th><th>Weather</th><th>Property</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for stay in stays %}
+      <tr data-bulk-row>
+        <td class="bulk-cell"><input type="checkbox" class="bulk-check" form="bulk-form" name="stays" value="{{ stay.pk }}" data-bulk-item aria-label="Select {{ stay.label }}"></td>
+        <td><strong>{{ stay.label }}</strong>{% if stay.city %}<br><span class="small muted">{{ stay.city.name }}</span>{% endif %}
+          {% if stay.planned %}<br><span class="small">{{ stay.planned|length }} activit{{ stay.planned|length|pluralize:"y,ies" }}: {% for item in stay.planned|slice:":3" %}{{ item.title }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if stay.planned|length > 3 %} and {{ stay.planned|length|add:"-3" }} more{% endif %}</span>{% endif %}</td>
+        <td class="num">{{ stay.check_in_date|date:"D j M" }}{% if stay.check_in_time %} {{ stay.check_in_time|time:"H:i" }}{% endif %}<br>{{ stay.check_out_date|date:"D j M" }}{% if stay.check_out_time %} {{ stay.check_out_time|time:"H:i" }}{% endif %}<br><span class="small muted">Day {{ stay.first_day }}{% if stay.last_day != stay.first_day %}–{{ stay.last_day }}{% endif %}</span></td>
+        <td class="num">{{ stay.nights }}</td>
+        <td class="small">{{ stay.weather_text|default:"—" }}</td>
+        <td>{% if stay.url %}<a href="{{ stay.url }}" target="_blank" rel="noopener nofollow">{{ stay.name|default:"Property page" }}</a>{% else %}{{ stay.name|default:"—" }}{% endif %}{% if stay.address %}<br><span class="small muted">{{ stay.address }}</span>{% endif %}{% include "manage/_stay_metro.html" %}{% if stay.phone or stay.email %}<br><span class="small">{% if stay.phone %}<a href="tel:{{ stay.phone|cut:' ' }}">{{ stay.phone }}</a>{% endif %}{% if stay.phone and stay.email %} · {% endif %}{% if stay.email %}<a href="mailto:{{ stay.email }}">{{ stay.email }}</a>{% endif %}</span>{% endif %}</td>
+        <td>{% include "manage/_status_badge.html" with plan=stay %}{% if stay.booking_ref %}<br><span class="small">{{ stay.booking_ref }}</span>{% endif %}{% include "manage/_plan_cost.html" with plan=stay %}{% include "manage/_missing_badge.html" with plan=stay %}</td>
+        <td class="num"><span class="cluster" style="justify-content: flex-end">{% url 'manage:stay_toggle' trip.pk stay.pk as toggle_url %}{% include "manage/_visibility_toggle.html" with action=toggle_url on=stay.is_public %}{% include "manage/_confirm_button.html" with plan=stay kind="stay" %}<a class="btn btn--small" href="{% url 'manage:stay_edit' trip.pk stay.pk %}">Edit</a></span></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="muted">No stays yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

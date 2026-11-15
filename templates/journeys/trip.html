@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ trip.title }} · {{ site.name }}{% endblock %}
+{% block description %}{{ trip.summary|truncatewords:30|default:site.tagline }}{% endblock %}
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+  {% if unlisted %}<meta name="robots" content="noindex, nofollow">{% endif %}
+{% endblock %}
+{% block header_width %}container--app{% endblock %}
+{% block footer_width %}container--app{% endblock %}
+
+{% block content %}
+{% include "journeys/_trip_header.html" %}
+
+{% if countdown %}
+<div class="container container--app">
+  {% if countdown.underway %}
+  <p class="countdown countdown--underway"><strong>Day {{ countdown.day }}</strong> of {{ countdown.of }}: the trip is under way.</p>
+  {% else %}
+  <section class="countdown" data-countdown="{{ countdown.target }}" aria-label="Countdown">
+    <div class="countdown__units" role="timer" aria-live="off">
+      <span class="countdown__unit"><strong data-unit="days">{{ countdown.days }}</strong> <span>day{{ countdown.days|pluralize }}</span></span>
+      <span class="countdown__unit"><strong data-unit="hours">{{ countdown.hours|stringformat:"02d" }}</strong> <span>hrs</span></span>
+      <span class="countdown__unit"><strong data-unit="minutes">{{ countdown.minutes|stringformat:"02d" }}</strong> <span>min</span></span>
+      <span class="countdown__unit"><strong data-unit="seconds">{{ countdown.seconds|stringformat:"02d" }}</strong> <span>sec</span></span>
+    </div>
+    <p class="countdown__label"><span data-countdown-label>{{ countdown.label }}</span> <span class="muted">· {{ countdown.when }}</span></p>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="container container--app trip-split" data-trip-page>
+  <section class="days-panel" aria-labelledby="days-title">
+    <h2 id="days-title" class="visually-hidden">Travel days</h2>
+    <div class="days-panel__bar">
+      <div class="filters" role="group" aria-label="Show">
+        <button type="button" class="filter" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="filter" data-filter="flight" aria-pressed="false">Flights</button>
+        <button type="button" class="filter" data-filter="rail" aria-pressed="false">Rail</button>
+        <button type="button" class="filter" data-filter="road" aria-pressed="false">Boat and road</button>
+      </div>
+      <span class="days-panel__count" data-day-count>{{ travel_days }} travel day{{ travel_days|pluralize }}</span>
+    </div>
+    <ol class="days">
+      {% for row in rows %}
+      {% if row.band %}
+      <li class="band" data-band><span class="band__range">{{ row.range }}</span><span class="band__rule" aria-hidden="true"></span><span class="band__text">{{ row.text }}</span></li>
+      {% else %}
+      <li class="dayrow is-open" data-day="{{ row.number }}">
+        <button type="button" class="dayrow__head" data-toggle-day aria-expanded="true" aria-controls="day-{{ row.number }}-journeys">
+          <span class="dayrow__date">
+            {% if row.hide_date %}<span class="dayrow__dow">Day</span><span class="dayrow__dom">{{ row.number }}</span>
+            {% else %}<span class="dayrow__dow">{{ row.date|date:"D" }}</span><span class="dayrow__dom">{{ row.date|date:"j" }}</span><span class="dayrow__mon">{{ row.date|date:"M" }}</span>{% endif %}
+          </span>
+          <span class="dayrow__text">
+            <span class="dayrow__title">{{ row.title }}</span>
+            <span class="dayrow__summary">{% if not row.hide_date %}Day {{ row.number }} · {% endif %}{{ row.summary }}</span>
+          </span>
+          <span class="dayrow__kinds" aria-hidden="true">{% for kind in row.kinds %}<span class="swatch swatch--{{ kind }}"></span>{% endfor %}</span>
+          <svg class="dayrow__chevron" aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l5 5 5-5"/></svg>
+        </button>
+        <ol class="dayrow__journeys" id="day-{{ row.number }}-journeys">
+          {% for leg in row.legs %}
+          <li data-group="{{ leg.group }}">
+            <button type="button" class="journey-card" data-journey="{{ leg.pk }}" data-day="{{ row.number }}" aria-pressed="false" aria-controls="journey-panel">
+              <span class="journey-card__time"{% if leg.rough %} title="About {{ leg.shown_depart }}"{% endif %}>{% if leg.shown_depart %}{% if leg.rough %}~{% endif %}{{ leg.shown_depart }}{% else %}—{% endif %}</span>
+              <span class="journey-card__body">
+                <span class="mode mode--{{ leg.mode_class }}">{{ leg.mode_label }}{% if leg.shown_number %} · {{ leg.shown_number }}{% endif %}</span>
+                <span class="journey-card__route">{% if leg.same_city %}{{ leg.origin.city_name }}{% else %}{{ leg.origin.city_name }} → {{ leg.destination.city_name }}{% endif %}{% if full and not leg.is_public %} <span class="badge">Private</span>{% endif %}</span>
+                {% if leg.operator or leg.shown_duration %}<span class="journey-card__meta">{{ leg.operator }}{% if leg.operator and leg.shown_duration %} · {% endif %}{% if leg.shown_duration %}{% if leg.rough %}about {% endif %}{{ leg.shown_duration }}{% endif %}</span>{% endif %}
+                {% if leg.moves %}<span class="journey-card__moves">{{ leg.moves }}</span>{% endif %}
+                {% if leg.mode == "flight" %}<span class="journey-card__live" data-live-card="{{ leg.pk }}" hidden></span>{% endif %}
+              </span>
+            </button>
+          </li>
+          {% endfor %}
+        </ol>
+      </li>
+      {% endif %}
+      {% empty %}
+      <li class="band"><span class="band__text">No transport to show yet.</span></li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="map-card" aria-label="Route map">
+    <div class="map-card__map">
+      <div id="trip-map" class="map" data-src="{{ urls.map }}" data-live="{{ urls.live }}" role="region" aria-label="Map of the route"></div>
+      <div class="map-card__scope" role="group" aria-label="The map shows">
+        <button type="button" data-scope="trip" aria-pressed="true">Whole trip</button>
+        <button type="button" data-scope="day" aria-pressed="false">This day</button>
+      </div>
+      {% include "journeys/_legend.html" %}
+    </div>
+    <aside class="journey-panel" id="journey-panel" aria-label="Journey details" hidden>
+      {% for leg in journeys %}{% include "journeys/_journey_detail.html" %}{% endfor %}
+    </aside>
+  </section>
+</div>
+{% endblock %}
+
+{% block footer_extra %}<p>Maps: © OpenStreetMap contributors, OpenRailwayMap{% if "flown" in track_sources %} · Flight tracks: <a href="https://www.flightradar24.com/">Flightradar24</a>{% endif %}{% if "adsb" in track_sources or "live" in track_sources %} · Flight tracks: <a href="https://adsb.lol/">adsb.lol</a> (ODbL){% endif %} · Metro routes: <a href="https://www.metroman.cn/en/maps">MetroMan</a>{% if timetable_credits %} · Timetables: {{ timetable_credits }} (CC BY 4.0){% endif %} · Weather: <a href="https://open-meteo.com/">Open-Meteo.com</a></p>{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/trip-map.js' %}"></script>
+<script src="{% static 'js/trip-page.js' %}"></script>
+{% endblock %}

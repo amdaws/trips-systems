@@ -1,0 +1,22 @@
+{# Metro or taxi between a hotel and the flight, train or boat. Visitors only get these for public stays. #}
+<div class="transfer small">
+  <span class="transfer__label">{% if t.kind == "arrival" %}On to {{ t.stay }}{% else %}From {{ t.stay }}{% endif %}{% if not t.public %} <span class="badge">Private</span>{% endif %}</span>
+  {% if t.metro %}
+  <span class="cluster">
+    <span>Metro {% if t.metro.same %}at {{ t.metro.station }}{% elif t.kind == "arrival" %}{{ t.metro.station }} → {{ t.station.name|default:"hotel" }}{% else %}{{ t.station.name|default:"hotel" }} → {{ t.metro.station }}{% endif %}</span>
+    {% with r=t.metro.route %}{% if r %}<span class="muted">{{ r.duration }}{% if r.fare %} · {{ r.fare }}{% endif %}{% if r.transfers %} · {{ r.transfers }}{% endif %}</span>{% endif %}{% endwith %}
+    {% if show_map_buttons and t.metro.segments %}<button type="button" class="btn btn--small no-print" data-animate-route="{{ t.metro.segments }}">Show route</button>{% elif not show_map_buttons %}<a href="{{ t.metro.url }}" target="_blank" rel="noopener noreferrer">Metro map</a>{% endif %}
+  </span>
+  {% if t.metro.route.rides %}
+  <ol class="rides list-plain">
+    {% for ride in t.metro.route.rides %}<li><span class="line-chip"{% if ride.colour %} style="--line: {{ ride.colour }};{% if ride.text %} --line-text: {{ ride.text }};{% endif %}"{% endif %}>{{ ride.line }}</span> {{ ride.from }} → {{ ride.to }}{% if ride.count %} <span class="muted">({{ ride.count }})</span>{% endif %}</li>{% endfor %}
+  </ol>
+  {% else %}
+  <span class="cluster">{% for line in t.station.lines %}<span class="line-chip"{% if line.colour %} style="--line: {{ line.colour }};{% if line.text %} --line-text: {{ line.text }};{% endif %}"{% endif %}>{{ line.name }}</span>{% endfor %}</span>
+  {% endif %}
+  {% if t.station.exit or t.station.distance %}<span>{% if t.kind == "arrival" %}Then walk{% else %}Walk{% endif %}{% if t.station.distance %} {{ t.station.distance }}{% endif %}{% if t.station.exit %} {% if t.kind == "arrival" %}from{% else %}to{% endif %} Exit {{ t.station.exit }}{% endif %}</span>{% endif %}
+  {% endif %}
+  {% if t.taxi %}
+  <span>{% if t.taxi.walk %}Walk {% if t.kind == "arrival" %}from {{ t.taxi.place }} to {{ t.taxi.to }}{% else %}from {{ t.taxi.to }} to {{ t.taxi.place }}{% endif %}: about {{ t.taxi.walk }}{% else %}Taxi {% if t.kind == "arrival" %}from {{ t.taxi.place }} to {{ t.taxi.to }}{% else %}from {{ t.taxi.to }} to {{ t.taxi.place }}{% endif %}: about {{ t.taxi.minutes }} min ({{ t.taxi.km }} km) without traffic{% endif %}</span>
+  {% endif %}
+</div>

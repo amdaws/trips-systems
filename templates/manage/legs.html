@@ -1,0 +1,42 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Transport · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>Transport</h2>
+  <div class="btn-row">
+    <a class="btn" href="{% url 'manage:imports' %}?trip={{ trip.pk }}">Import a booking</a>
+    <a class="btn btn--primary" href="{% url 'manage:leg_create' trip.pk %}">Add transport</a>
+  </div>
+</div>
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Date</th><th>Time</th><th>Type</th><th>From → to</th><th>Status</th><th>Route on map</th><th></th></tr></thead>
+    <tbody>
+      {% for leg in legs %}
+      <tr>
+        <td class="num">{{ leg.depart_date|date:"D j M" }}</td>
+        <td class="num">{{ leg.depart_time|time:"H:i" }}{% if leg.arrive_time %}–{{ leg.arrive_time|time:"H:i" }}{% if leg.arrives_next_day %} +1{% endif %}{% endif %}</td>
+        <td><span class="mode mode--{{ leg.mode_class }}">{{ leg.mode_label }}</span>{% if leg.number %}<br><strong>{{ leg.number }}</strong>{% endif %}{% if leg.operator %} <span class="small muted">{{ leg.operator }}</span>{% endif %}</td>
+        <td class="entry__body">{% include "journeys/_leg_route.html" %}{% if leg.notes %}<p class="small muted">{{ leg.notes|truncatechars:90 }}</p>{% endif %}{% include "journeys/_lookup_links.html" %}</td>
+        <td>{% include "manage/_status_badge.html" with plan=leg %}{% include "manage/_plan_cost.html" with plan=leg %}{% include "manage/_missing_badge.html" with plan=leg %}{% if leg.seat_class %}<br><span class="small muted">{{ leg.seat_class }}</span>{% endif %}</td>
+        <td class="small">{% if leg.path_status == "ok" %}<span class="tick">✓</span> {{ leg.get_path_source_display }}{% else %}<span class="badge badge--amber">{{ leg.get_path_status_display }}</span>{% endif %}</td>
+        <td class="num">
+          {% url 'manage:leg_toggle' trip.pk leg.pk as toggle_url %}{% include "manage/_visibility_toggle.html" with action=toggle_url on=leg.is_public %}
+          {% include "manage/_confirm_button.html" with plan=leg kind="leg" %}
+          <a class="btn btn--small" href="{% url 'manage:leg_edit' trip.pk leg.pk %}">Edit</a>
+          {% if leg.mode in "train boat car bus shuttle" %}
+          <form method="post" action="{% url 'manage:leg_retrace' trip.pk leg.pk %}" style="display:inline">{% csrf_token %}<button class="btn btn--small" type="submit" title="Trace the route again">Retrace</button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="muted">No transport yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="small muted">Public transport shows on the trip page for anyone (flights and trains with the airline or railway and times rounded up to the quarter hour, never the number); private transport only for you and the secret link.</p>
+<p class="small muted">Routes: flights follow the real track of a recent flight with the same number (adsb.lol's open archive, ODbL; or Flightradar24 when a token is set), or a great-circle arc where there's no coverage; trains follow OpenStreetMap railway track; boats follow the river; road trips use OSRM routing. Map data © OpenStreetMap contributors (ODbL).</p>
+{% endblock %}

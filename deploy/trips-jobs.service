@@ -1,0 +1,44 @@
+[Unit]
+Description=trips.aarondaws.com.au background jobs (route tracing, exchange rates, weather)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=trips
+Group=trips
+WorkingDirectory=/srv/trips/app
+EnvironmentFile=/etc/trips/trips.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/srv/trips/venv/bin/python manage.py run_jobs --max-seconds 1500
+# Long train routes can need several slow map downloads; give them room to finish.
+TimeoutStartSec=1800
+Nice=10
+# Big map downloads can't starve the website: the job is capped and killed first.
+MemoryHigh=400M
+MemoryMax=600M
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/trips
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ProtectKernelLogs=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027

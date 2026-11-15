@@ -1,0 +1,22 @@
+{# How to get to an activity from that night's hotel. Visitors only get these when that stay is public. #}
+{% with d=item.directions_view %}{% if d %}
+<div class="transfer small">
+  <span class="transfer__label">Getting there{% if d.stay %} from {{ d.stay }}{% endif %}</span>
+  {% if d.metro %}
+  <span class="cluster">
+    <span>Metro {{ d.metro.from }} → {{ d.metro.to }}</span>
+    {% with r=d.metro.route %}<span class="muted">{{ r.duration }}{% if r.fare %} · {{ r.fare }}{% endif %}{% if r.transfers %} · {{ r.transfers }}{% endif %}</span>{% endwith %}
+    {% if show_map_buttons %}<button type="button" class="btn btn--small no-print" data-animate-route="{{ d.metro.segments }}">Show route</button>{% else %}<a href="{{ d.metro.url }}" target="_blank" rel="noopener noreferrer">Metro map</a>{% endif %}
+  </span>
+  <ol class="rides list-plain">
+    {% for ride in d.metro.route.rides %}<li><span class="line-chip"{% if ride.colour %} style="--line: {{ ride.colour }};{% if ride.text %} --line-text: {{ ride.text }};{% endif %}"{% endif %}>{{ ride.line }}</span> {{ ride.from }} → {{ ride.to }}{% if ride.count %} <span class="muted">({{ ride.count }})</span>{% endif %}</li>{% endfor %}
+  </ol>
+  {% if d.metro.exit or d.metro.walk %}<span>Then walk{% if d.metro.walk %} {{ d.metro.walk }}{% endif %}{% if d.metro.exit %} from Exit {{ d.metro.exit }}{% endif %}</span>{% endif %}
+  {% elif d.taxi %}
+  <span>Taxi: about {{ d.taxi.minutes }} min ({{ d.taxi.km }} km) without traffic</span>
+  {% elif d.walk %}
+  <span>Walk: about {{ d.walk }}</span>
+  {% endif %}
+  {% if d.message %}<span class="muted">{{ d.message }}</span>{% endif %}
+</div>
+{% endif %}{% endwith %}

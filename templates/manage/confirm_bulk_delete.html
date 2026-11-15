@@ -1,0 +1,21 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Delete {{ noun }} · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="card stack" style="max-width: 40rem">
+  <h2>Delete {{ rows|length }} {{ noun }}?</h2>
+  <ul class="list-plain stack" style="--stack: .3rem">
+    {% for row in rows %}<li><strong>{{ row.title }}</strong> <span class="small muted">{{ row.detail }}</span></li>{% endfor %}
+  </ul>
+  <p class="muted">This can't be undone.</p>
+  <form method="post" class="btn-row">
+    {% csrf_token %}
+    {% for row in rows %}<input type="hidden" name="{{ field }}" value="{{ row.pk }}">{% endfor %}
+    <input type="hidden" name="action" value="delete">
+    <input type="hidden" name="confirm" value="yes">
+    <button class="btn btn--danger" type="submit">Delete {% if rows|length == 1 %}it{% else %}them{% endif %}</button>
+    <a class="btn" href="{{ back }}">Cancel</a>
+  </form>
+</div>
+{% endblock %}

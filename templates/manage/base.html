@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% block page_title %}Planner{% endblock %} · {{ site.name }}{% endblock %}
+{% block extra_head %}<meta name="robots" content="noindex, nofollow">{% block manage_head %}{% endblock %}{% endblock %}
+{% block header_width %}container--wide{% endblock %}
+{% block footer_width %}container--wide{% endblock %}
+
+{% block content %}
+<div class="container container--wide">
+  {% if trip %}
+  <header class="manage-head stack">
+    <p class="small"><a href="{% url 'manage:dashboard' %}">← All trips</a></p>
+    <div class="toolbar">
+      <h1 style="font-size: var(--step-3)">{{ trip.title }}</h1>
+      <span class="cluster">
+        <span class="badge {% if trip.visibility == 'public' %}badge--green{% elif trip.visibility == 'unlisted' %}badge--blue{% endif %}">{{ trip.visibility_short }}</span>
+        {% if trip.get_public_url %}<a class="btn btn--small" href="{{ trip.get_public_url }}" target="_blank" rel="noopener">View public page</a>{% endif %}
+      </span>
+    </div>
+    <p class="muted small">{{ trip.start_date|date:"D j M Y" }} – {{ trip.end_date|date:"D j M Y" }} · {{ trip.duration_days }} days</p>
+    <nav class="tabs" aria-label="Trip sections">
+      <a href="{% url 'manage:trip' trip.pk %}"{% if tab == 'overview' %} aria-current="page"{% endif %}>Itinerary</a>
+      <a href="{% url 'manage:activities' trip.pk %}"{% if tab == 'activities' %} aria-current="page"{% endif %}>Activities</a>
+      <a href="{% url 'manage:legs' trip.pk %}"{% if tab == 'transport' %} aria-current="page"{% endif %}>Transport</a>
+      <a href="{% url 'manage:stays' trip.pk %}"{% if tab == 'stays' %} aria-current="page"{% endif %}>Stays</a>
+      <a href="{% url 'manage:budget' trip.pk %}"{% if tab == 'budget' %} aria-current="page"{% endif %}>Budget</a>
+      <a href="{% url 'manage:checklist' trip.pk %}"{% if tab == 'checklist' %} aria-current="page"{% endif %}>Checklist</a>
+      <a href="{% url 'manage:documents' trip.pk %}"{% if tab == 'documents' %} aria-current="page"{% endif %}>Documents</a>
+      <a href="{% url 'manage:trip_settings' trip.pk %}"{% if tab == 'settings' %} aria-current="page"{% endif %}>Settings</a>
+    </nav>
+  </header>
+  {% endif %}
+
+  {% if messages %}
+  <ul class="messages">
+    {% for message in messages %}<li class="alert alert--{{ message.tags }}">{{ message }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  <div class="section stack" style="padding-block-start: var(--space-m); --stack: var(--space-m)">
+    {% block manage_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}
+
+{% block footer_extra %}
+<form method="post" action="{% url 'manage:logout' %}" class="cluster">
+  {% csrf_token %}
+  <a href="/{{ site.admin_path }}">Raw data (admin)</a>
+  <button class="btn btn--small" type="submit">Log out</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/manage.js' %}"></script>
+{% block manage_scripts %}{% endblock %}
+{% endblock %}

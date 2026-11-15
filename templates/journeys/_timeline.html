@@ -1,0 +1,75 @@
+{% comment %}
+Day-by-day plan. Visitors get rounded times for flights and trains (leg.rough); full viewers (secret link, signed in)
+exact times, numbers and Private badges; the planner (private) also bookings, private notes and edit links.
+{% endcomment %}
+<ol class="timeline list-plain">
+  {% for d in days %}
+  <li class="day" id="day-{{ d.number }}" data-day="{{ d.number }}">
+    <div class="day__head">
+      <span class="day__date">{{ d.label }}{% if private or full or not trip.hide_dates %} · Day {{ d.number }}{% endif %}</span>
+      <span class="cluster">
+        {% if d.night %}<span class="day__overnight">Overnight in {{ d.night.name }}{% if d.night.local %} <span class="local">{{ d.night.local }}</span>{% endif %}</span>{% endif %}
+        {% if show_map_buttons %}<button type="button" class="btn btn--small no-print" data-show-day="{{ d.number }}">Show on map</button>{% endif %}
+        {% if private %}<a class="btn btn--small no-print" href="{% url 'manage:day' trip.pk d.day.date|date:'Y-m-d' %}">Edit day</a>{% endif %}
+      </span>
+      {% if d.day.title %}<h3 class="day__title">{{ d.day.title }}</h3>{% endif %}
+    </div>
+    {% if private and d.day.notes %}<p class="entry__private" style="margin-top:.4rem">{{ d.day.notes }}</p>{% endif %}
+
+    {% for block in d.blocks %}
+    <div class="block">
+      <p class="block__label">{{ block.label }} <span class="muted">{{ block.hours }}</span></p>
+      {% for e in block.entries %}
+        {% if e.type == "leg" %}{% with leg=e.obj %}
+        <div class="entry">
+          <span class="entry__time"{% if leg.rough %} title="About {{ leg.shown_depart }}"{% endif %}>{% if leg.rough %}~{% endif %}{{ leg.shown_depart }}</span>
+          <div class="entry__body stack">
+            {% for t in leg.transfers.before %}{% include "journeys/_transfer.html" %}{% endfor %}
+            <span class="cluster"><span class="mode mode--{{ leg.mode_class }}">{{ leg.mode_label }}{% if leg.shown_number %} · {{ leg.shown_number }}{% endif %}</span>{% if not leg.is_public %}{% if private or full %} <span class="badge">Private</span>{% endif %}{% endif %}</span>
+            {% include "journeys/_leg_route.html" %}
+            {% if leg.operator or leg.shown_duration %}<p class="small muted">{{ leg.operator }}{% if leg.operator and leg.shown_duration %} · {% endif %}{% if leg.shown_duration %}{% if leg.rough %}about {% endif %}{{ leg.shown_duration }}{% endif %}</p>{% endif %}
+            {% if leg.shown_arrive %}<p class="small muted">Arrives {% if leg.rough %}about {% endif %}{{ leg.shown_arrive }}{% if leg.shown_next_day %} the next day{% endif %}</p>{% endif %}
+            {% if show_map_buttons and leg.mode == "train" %}<p><button type="button" class="btn btn--small no-print" data-animate-leg="{{ leg.pk }}">Play route</button></p>{% endif %}
+            {% if leg.public_note %}<p class="small">{{ leg.public_note }}</p>{% endif %}
+            {% for t in leg.transfers.after %}{% include "journeys/_transfer.html" %}{% endfor %}
+            {% if private %}
+            <p class="cluster small">
+              <span class="badge {% if leg.status == 'booked' %}badge--green{% else %}badge--blue{% endif %}">{{ leg.get_status_display }}</span>
+              {% if leg.seat_class %}<span class="badge">{{ leg.seat_class }}</span>{% endif %}
+              {% if leg.booking_ref %}<span class="badge">Ref {{ leg.booking_ref }}</span>{% endif %}
+              {% if leg.status == "planned" and leg.url %}<a href="{{ leg.url }}" target="_blank" rel="noopener nofollow">Booking page</a>{% endif %}
+              {% include "manage/_confirm_button.html" with plan=leg kind="leg" %}
+              {% if leg.path_status != "ok" %}<span class="badge badge--amber">{{ leg.get_path_status_display }}</span>{% endif %}
+              <a href="{% url 'manage:leg_edit' trip.pk leg.pk %}">Edit</a>
+            </p>
+            {% if leg.notes %}<p class="entry__private">{{ leg.notes }}</p>{% endif %}
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}{% else %}{% with item=e.obj %}
+        <div class="entry">
+          <span class="entry__time">{{ item.start_time|time:"H:i" }}</span>
+          <div class="entry__body stack">
+            <p class="entry__title">{{ item.title }}{% if not item.is_public %}{% if private or full %} <span class="badge">Private</span>{% endif %}{% endif %}</p>
+            {% if item.description %}<p class="small">{{ item.description|linebreaksbr }}</p>{% endif %}
+            {% if item.place %}{% if private or item.place.kind != "hotel" %}<p class="small muted">{{ item.place.name }}{% if item.place.name_local %} <span class="local">{{ item.place.name_local }}</span>{% endif %}</p>{% endif %}{% endif %}
+            {% with links=item.link_list %}{% if links %}
+            <p class="entry__links">{% for link in links %}<a href="{{ link.url }}" target="_blank" rel="noopener nofollow">{{ link.label }}</a>{% endfor %}</p>
+            {% endif %}{% endwith %}
+            {% include "journeys/_directions.html" %}
+            {% if private %}
+            <p class="cluster small">{% include "manage/_status_badge.html" with plan=item %}{% include "manage/_confirm_button.html" with plan=item kind="item" %}</p>
+            {% if item.private_notes %}<p class="entry__private">{{ item.private_notes }}</p>{% endif %}
+            <p class="small"><a href="{% url 'manage:item_edit' trip.pk item.pk %}">Edit</a></p>
+            {% endif %}
+          </div>
+        </div>
+        {% endwith %}{% endif %}
+      {% endfor %}
+    </div>
+    {% empty %}
+    <p class="small muted" style="margin-top:.5rem">{% if private %}Nothing planned yet.{% else %}No travel this day.{% endif %}</p>
+    {% endfor %}
+  </li>
+  {% endfor %}
+</ol>

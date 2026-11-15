@@ -1,0 +1,17 @@
+{# With collapsed=True (public trip page) the list starts folded away. #}
+{% if stops %}
+<details class="card card--flat stack stops-card"{% if not collapsed %} open{% endif %}>
+  <summary><h2 class="h4" style="font-size: var(--step-0)">Overnight stops <span class="muted small">({{ stops|length }})</span></h2></summary>
+  <ol class="stops">
+    {% for stop in stops %}
+    <li>
+      <span class="stop-name">{{ stop.name }} {% if stop.local %}<span class="local">{{ stop.local }}</span>{% endif %}</span>
+      <span class="small muted">{{ stop.nights }} night{{ stop.nights|pluralize }}{% if private or not trip.hide_dates %} · {{ stop.first|date:"j M" }}{% endif %}</span>
+      {% with summary=stop.weather.data.summary %}{% if summary %}
+      <span class="weather">{% if stop.weather.kind == "forecast" %}Forecast{% else %}Typical{% endif %} {{ summary.min }}–{{ summary.max }} °C{% if summary.rain_share is not None %} · rain {{ summary.rain_share }}% of days{% endif %}</span>
+      {% endif %}{% endwith %}
+    </li>
+    {% endfor %}
+  </ol>
+</details>
+{% endif %}

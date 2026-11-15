@@ -1,0 +1,39 @@
+{% extends "manage/base.html" %}
+{% load static %}
+
+{% block page_title %}{{ trip.title }}{% endblock %}
+{% block manage_head %}<link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">{% endblock %}
+
+{% block manage_content %}
+<div class="grid kpis">
+  <div class="card kpi stack"><span class="small muted">Overnight stops</span><strong>{{ summary.cities }}</strong></div>
+  <div class="card kpi stack"><span class="small muted">Flights / trains</span><strong>{{ summary.flights }} / {{ summary.trains }}</strong></div>
+  <div class="card kpi stack"><span class="small muted">Spent so far (AUD)</span><strong>${{ budget.actual|floatformat:"0g" }}</strong><span class="small muted">of ${{ budget.estimate|floatformat:"0g" }} estimated</span></div>
+  <div class="card kpi stack"><span class="small muted">Per person (AUD)</span><strong>{% if budget.per_person is not None %}${{ budget.per_person|floatformat:"0g" }}{% else %}—{% endif %}</strong><span class="small muted">{{ budget.travellers|length }} traveller{{ budget.travellers|length|pluralize }}</span></div>
+</div>
+
+{% if pending_routes %}<p class="alert alert--warning">{{ pending_routes }} route{{ pending_routes|pluralize }} {{ pending_routes|pluralize:"is,are" }} being traced along the track or road. They'll appear within a few minutes; until then they're drawn as dashed straight lines.</p>{% endif %}
+
+<div class="toolbar">
+  <h2>Itinerary</h2>
+  <div class="btn-row">
+    <a class="btn btn--small" href="{% url 'manage:item_create' trip.pk %}">Add activity</a>
+    <a class="btn btn--small btn--primary" href="{% url 'manage:leg_create' trip.pk %}?next={{ request.path|urlencode }}">Add transport</a>
+  </div>
+</div>
+
+<div class="trip-layout" style="padding-block-end: 0">
+  <section class="trip-layout__map stack" aria-label="Route map">
+    <div id="trip-map" class="map" data-src="{% url 'manage:trip_map' trip.pk %}"></div>
+    {% include "journeys/_legend.html" %}
+  </section>
+  <section class="trip-layout__plan">
+    {% include "journeys/_timeline.html" with private=True show_map_buttons=True %}
+  </section>
+</div>
+{% endblock %}
+
+{% block manage_scripts %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/trip-map.js' %}"></script>
+{% endblock %}

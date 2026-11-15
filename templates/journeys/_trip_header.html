@@ -1,0 +1,82 @@
+{# The header of a trip's pages: title, dates, the trip at a glance, Share and Calendar, and the page tabs. #}
+{% load aest_time %}
+<section class="trip-header">
+  <div class="container container--app">
+    <nav aria-label="Breadcrumb" class="crumbs"><a href="{% url 'core:home' %}">Trips</a> <span aria-hidden="true">›</span> <span>{{ trip.title }}</span></nav>
+    <div class="trip-header__row">
+      <div class="trip-header__main">
+        <div class="cluster">
+          <h1 class="trip-header__title">{{ trip.title }}</h1>
+          {% if unlisted %}<span class="badge">Shared link</span>{% else %}<span class="badge badge--green">Public trip</span>{% endif %}
+        </div>
+        <p class="trip-header__dates">{% if trip.hide_dates and not full %}{{ trip.duration_days }} days{% else %}{{ trip.start_date|date:"D j M Y" }} – {{ trip.end_date|date:"D j M Y" }} · {{ trip.duration_days }} days{% endif %}</p>
+        {% if trip.summary and tab == "itinerary" %}<p class="trip-header__summary">{{ trip.summary }}</p>{% endif %}
+        <ul class="chips" aria-label="The trip at a glance">
+          {% if stops %}
+          <li>
+            <details class="chip-pop">
+              <summary class="chip"><strong>{{ stops|length }}</strong> overnight stop{{ stops|length|pluralize }}<svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l5 5 5-5"/></svg></summary>
+              <div class="chip-pop__panel">
+                <ol class="stops">
+                  {% for stop in stops %}
+                  <li>
+                    <span class="stop-name">{{ stop.name }} {% if stop.local %}<span class="local">{{ stop.local }}</span>{% endif %}</span>
+                    <span class="small muted">{{ stop.nights }} night{{ stop.nights|pluralize }}{% if full or not trip.hide_dates %} · {{ stop.first|date:"j M" }}{% endif %}</span>
+                    {% with weather=stop.weather.data.summary %}{% if weather %}<span class="weather">{% if stop.weather.kind == "forecast" %}Forecast{% else %}Typical{% endif %} {{ weather.min }}–{{ weather.max }} °C{% if weather.rain_share is not None %} · rain {{ weather.rain_share }}% of days{% endif %}</span>{% endif %}{% endwith %}
+                  </li>
+                  {% endfor %}
+                </ol>
+              </div>
+            </details>
+          </li>
+          {% endif %}
+          {% if summary.flights %}<li class="chip"><strong>{{ summary.flights }}</strong> flight{{ summary.flights|pluralize }}</li>{% endif %}
+          {% if summary.trains %}<li class="chip"><strong>{{ summary.trains }}</strong> train{{ summary.trains|pluralize }}</li>{% endif %}
+          {% if summary.other_legs %}<li class="chip"><strong>{{ summary.other_legs }}</strong> boat and road</li>{% endif %}
+          {% if changes.total %}
+          <li>
+            <details class="chip-pop" data-changes>
+              <summary class="chip chip--new"><span class="chip__dot" aria-hidden="true"></span><strong>{{ changes.total }}</strong> recent update{{ changes.total|pluralize }}<svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l5 5 5-5"/></svg></summary>
+              <div class="chip-pop__panel">
+                <p class="chip-pop__heading">Recently updated <span class="muted">· last 30 days</span></p>
+                <ol class="changes">
+                  {% for change in changes.lines %}
+                  <li class="change">
+                    <span class="change__action change__action--{{ change.action|slugify }}">{{ change.action }}</span>
+                    <span class="change__body">
+                      <span class="mode mode--{{ change.mode }}">{{ change.label }}</span>
+                      {% if change.link %}<a class="change__title" href="{{ change.link }}">{{ change.title }}</a>{% else %}<span class="change__title">{{ change.title }}</span>{% endif %}
+                      <span class="change__meta">{% if change.details %}{{ change.details|join:", "|capfirst }} · {% endif %}{% if change.date %}{{ change.date }} · {% endif %}<time datetime="{{ change.when|date:'c' }}" title="{{ change.when|aest_time }}">{{ change.when|timesince }} ago</time></span>
+                    </span>
+                  </li>
+                  {% empty %}
+                  <li class="change change--none muted small">No {{ changes.noun }} changes.</li>
+                  {% endfor %}
+                </ol>
+                {% if changes.others %}<p class="changes__others small">{% for other in changes.others %}<a href="{{ other.url }}">{{ other.text }} →</a>{% endfor %}</p>{% endif %}
+              </div>
+            </details>
+          </li>
+          {% endif %}
+        </ul>
+      </div>
+      <div class="command-bar no-print">
+        {% if full %}
+        <span class="command-bar__note">
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v5M10 6.2v.1"/></svg>
+          {% if unlisted %}Shared link: private plans show, marked Private{% else %}Signed in: private plans show, marked Private{% endif %}
+        </span>
+        {% endif %}
+        <button type="button" class="btn" data-share data-share-title="{{ trip.title }}">
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4l3 3-3 3"/><path d="M16 7H9a5 5 0 0 0-5 5v3"/></svg><span data-share-label>Share</span>
+        </button>
+        {% if urls.calendar %}<a class="btn btn--subtle" href="{{ urls.calendar }}"><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4.5" width="14" height="12" rx="2"/><path d="M3 8.5h14M7 3v3M13 3v3"/></svg>Add to calendar</a>{% endif %}
+      </div>
+    </div>
+    <nav class="tablist no-print" aria-label="Trip pages">
+      <a href="{{ urls.trip }}"{% if tab == "itinerary" %} aria-current="page"{% endif %}>Itinerary</a>
+      {% if stay_count %}<a href="{{ urls.stays }}"{% if tab == "stays" %} aria-current="page"{% endif %}>Stays <span class="tablist__count">{{ stay_count }}</span></a>{% endif %}
+      {% if activity_count %}<a href="{{ urls.activities }}"{% if tab == "activities" %} aria-current="page"{% endif %}>Activities <span class="tablist__count">{{ activity_count }}</span></a>{% endif %}
+    </nav>
+  </div>
+</section>

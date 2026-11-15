@@ -1,0 +1,31 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Documents · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<h2>Documents</h2>
+<p class="small muted">Tickets, confirmations and passport copies. Stored privately on the server and only downloadable while logged in.</p>
+
+<section class="card stack">
+  <ul class="list-plain">
+    {% for doc in documents %}
+    <li class="row-item">
+      <span><a href="{% url 'manage:document_download' trip.pk doc.pk %}" target="_blank" rel="noopener"><strong>{{ doc.title }}</strong></a>
+        <span class="small muted">· {{ doc.file.size|filesizeformat }} · uploaded {{ doc.uploaded_at|date:"j M Y" }}{% if doc.leg %} · {{ doc.leg }}{% endif %}{% if doc.stay %} · {{ doc.stay }}{% endif %}</span></span>
+      <a class="btn btn--small btn--danger" href="{% url 'manage:document_delete' trip.pk doc.pk %}">Delete</a>
+    </li>
+    {% empty %}
+    <li class="muted small">No documents yet.</li>
+    {% endfor %}
+  </ul>
+</section>
+
+<form method="post" enctype="multipart/form-data" class="form card stack">
+  {% csrf_token %}
+  <h3>Upload</h3>
+  <div class="form-grid">
+    {% for field in form %}{% include "manage/_field.html" %}{% endfor %}
+  </div>
+  <div><button class="btn btn--primary" type="submit">Upload</button></div>
+</form>
+{% endblock %}

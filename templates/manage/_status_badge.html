@@ -1,0 +1,2 @@
+{# Planned / Booked, the same on the Transport, Stays and Activities pages. Pass the plan as `plan`. #}
+<span class="badge {% if plan.status == 'booked' %}badge--green{% else %}badge--blue{% endif %}">{{ plan.get_status_display }}</span>

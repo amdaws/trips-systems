@@ -1,0 +1,459 @@
+# What's new: every release of the travels site, shown at /changelog/.
+#
+# Add a [[release]] for each deploy that changes something people would notice.
+# - at: when it went live, with its UTC offset. Write it in AEST (+10:00); the page shows AEST all year.
+# - category: new, improved, fixed or security.
+# - area: Itinerary, Map, Planner, Stays, Activities or Site.
+# Keep the wording public: no keys, addresses, admin paths or open security issues.
+
+[[release]]
+at = 2026-10-25T16:03:00+11:00
+title = "The site goes live"
+items = [
+  { category = "new", area = "Site", text = "travels.aarondaws.com.au is live over HTTPS, served through Cloudflare with certificates that renew automatically." },
+]
+
+[[release]]
+at = 2026-10-25T17:49:00+11:00
+title = "A proper web app"
+items = [
+  { category = "new", area = "Site", text = "Rebuilt on Django with a database, ready for the features to come." },
+  { category = "new", area = "Site", text = "A back office for managing the site's data." },
+  { category = "new", area = "Site", text = "A contact form that saved messages for review." },
+]
+
+[[release]]
+at = 2026-10-25T18:01:00+11:00
+title = "Back to basics"
+items = [
+  { category = "improved", area = "Site", text = "The home page became a simple \"in development\" page in a clean black-and-white style." },
+  { category = "improved", area = "Site", text = "The contact form and the earlier colour themes were removed." },
+]
+
+[[release]]
+at = 2026-10-25T19:01:00+11:00
+title = "The journey planner"
+items = [
+  { category = "new", area = "Planner", text = "A private planner for trips, with days, transport, stays and activities." },
+  { category = "new", area = "Itinerary", text = "Trip pages with a day-by-day itinerary, and place names in English and Chinese." },
+  { category = "new", area = "Site", text = "Each trip can be private, shared with a secret link, or public." },
+  { category = "new", area = "Map", text = "A trip map: flights as great-circle arcs, trains traced along the real railway, and a railway overlay." },
+  { category = "new", area = "Planner", text = "Quick entry: type a flight or train number and route, and the details fill in." },
+  { category = "new", area = "Planner", text = "A budget in any currency, converted to Australian dollars." },
+  { category = "new", area = "Planner", text = "A checklist, with reminders for when train tickets go on sale." },
+  { category = "new", area = "Planner", text = "Private storage for tickets and booking documents." },
+  { category = "new", area = "Itinerary", text = "Weather for each overnight stop, and calendar feeds to add a trip to your phone." },
+  { category = "new", area = "Planner", text = "The China 2027 trip, imported from its planning spreadsheet." },
+]
+
+[[release]]
+at = 2026-10-25T19:20:00+11:00
+title = "Auto-fill and new pages"
+items = [
+  { category = "improved", area = "Planner", text = "Transport details fill in automatically from the flight or train number." },
+  { category = "new", area = "Site", text = "Home, Places, About and Legals pages." },
+  { category = "fixed", area = "Map", text = "Rail routes now retry when the map data service is busy." },
+]
+
+[[release]]
+at = 2026-10-25T19:36:00+11:00
+title = "Live flight details"
+items = [
+  { category = "new", area = "Planner", text = "Flight times, airports and airline are looked up live from the flight number." },
+  { category = "improved", area = "Planner", text = "Stations and airports know which city they serve." },
+]
+
+[[release]]
+at = 2026-10-25T19:44:00+11:00
+title = "Hotel links"
+items = [
+  { category = "new", area = "Stays", text = "Paste a hotel link from Trip.com or other sites to fill in the address, check-in times and contact details." },
+]
+
+[[release]]
+at = 2026-10-25T20:00:00+11:00
+title = "Booking emails"
+items = [
+  { category = "new", area = "Planner", text = "Booking confirmations can be forwarded by email for review in the planner (set up, then paused for now)." },
+]
+
+[[release]]
+at = 2026-10-25T21:00:00+11:00
+title = "Truer rail routes"
+items = [
+  { category = "improved", area = "Map", text = "More train journeys follow the actual railway instead of a straight line." },
+  { category = "improved", area = "Itinerary", text = "The checklist moved off the trip page." },
+]
+
+[[release]]
+at = 2026-10-25T21:14:00+11:00
+title = "Airline list"
+items = [
+  { category = "improved", area = "Planner", text = "Airline names and codes are up to date." },
+]
+
+[[release]]
+at = 2026-10-25T21:40:00+11:00
+title = "Recorded flight paths"
+items = [
+  { category = "new", area = "Map", text = "Flights can be drawn along recorded flight paths from Flightradar24." },
+]
+
+[[release]]
+at = 2026-10-25T22:13:00+11:00
+title = "Metro maps"
+items = [
+  { category = "new", area = "Stays", text = "The nearest metro station for each stay, from MetroMan's maps of Chinese cities." },
+]
+
+[[release]]
+at = 2026-10-25T22:20:00+11:00
+title = "Real flight routes"
+items = [
+  { category = "improved", area = "Map", text = "International flights follow routes actually flown on the same flight number, from the adsb.lol archive. Domestic flights in China stay as arcs." },
+  { category = "fixed", area = "Map", text = "Flight tracks end at the airports." },
+]
+
+[[release]]
+at = 2026-10-25T22:48:00+11:00
+title = "Getting around"
+items = [
+  { category = "new", area = "Itinerary", text = "Metro transfers between stations, airports and hotels, with the lines to take and where to change." },
+  { category = "new", area = "Itinerary", text = "Estimated taxi times where there's no metro map." },
+  { category = "new", area = "Map", text = "Metro routes to and from hotels on the map." },
+  { category = "improved", area = "Itinerary", text = "Overnight stops start folded, to keep the page short." },
+  { category = "new", area = "Site", text = "Dark mode, with a switch in the header." },
+]
+
+[[release]]
+at = 2026-10-25T23:07:00+11:00
+title = "Activities"
+items = [
+  { category = "new", area = "Activities", text = "A list of sights and plans for each day, with import from a web link." },
+  { category = "new", area = "Activities", text = "Directions to each activity from that night's hotel, by metro or taxi." },
+  { category = "new", area = "Map", text = "Animated routes on the map, showing the direction of travel." },
+  { category = "fixed", area = "Map", text = "Places in mainland China no longer sit about 500 m off on the map." },
+]
+
+[[release]]
+at = 2026-10-25T23:13:00+11:00
+title = "Buses, coaches and car pick-ups"
+items = [
+  { category = "new", area = "Planner", text = "Add buses, coaches and private car pick-ups from a booking link." },
+]
+
+[[release]]
+at = 2026-10-25T23:40:00+11:00
+title = "High-speed rail in red"
+items = [
+  { category = "improved", area = "Map", text = "High-speed trains are shown in red." },
+]
+
+[[release]]
+at = 2026-10-25T23:45:00+11:00
+title = "Transport first"
+items = [
+  { category = "improved", area = "Itinerary", text = "Each day shows transport only. Stays and activities have their own sections." },
+  { category = "improved", area = "Map", text = "The railway network overlay is red too." },
+]
+
+[[release]]
+at = 2026-10-26T00:06:00+11:00
+title = "Public or private, item by item"
+items = [
+  { category = "new", area = "Planner", text = "Every transport leg, stay and activity has its own public or private switch. New items start private." },
+  { category = "new", area = "Stays", text = "A Stays page for each trip." },
+  { category = "new", area = "Activities", text = "An Activities page for each trip." },
+  { category = "security", area = "Itinerary", text = "Visitors see times rounded to the quarter hour, and no flight or train numbers, hotel names or booking details." },
+]
+
+[[release]]
+at = 2026-10-26T00:14:00+11:00
+title = "Tidy-up"
+items = [
+  { category = "fixed", area = "Site", text = "Stray template notes no longer show on pages." },
+]
+
+[[release]]
+at = 2026-10-26T00:45:00+11:00
+title = "A new design"
+items = [
+  { category = "improved", area = "Site", text = "A cleaner design based on Microsoft's Fluent 2." },
+  { category = "improved", area = "Itinerary", text = "The map sits beside the day list, journey details open in a side panel, and filters pick out flights, rail, and boat and road." },
+]
+
+[[release]]
+at = 2026-10-26T00:49:00+11:00
+title = "Print removed"
+items = [
+  { category = "improved", area = "Site", text = "Print links and the print page were removed." },
+]
+
+[[release]]
+at = 2026-10-26T00:54:00+11:00
+title = "Bulk actions"
+items = [
+  { category = "new", area = "Activities", text = "Select several activities at once to make them public or private, move them to another day, or delete them." },
+]
+
+[[release]]
+at = 2026-10-26T01:16:00+11:00
+title = "Security headers"
+items = [
+  { category = "security", area = "Site", text = "Stronger browser security settings." },
+]
+
+[[release]]
+at = 2026-10-26T01:21:00+11:00
+title = "Security hardening"
+items = [
+  { category = "security", area = "Site", text = "A Content Security Policy, in monitoring mode to start with." },
+  { category = "security", area = "Planner", text = "Link imports only read public websites, with size limits." },
+  { category = "security", area = "Site", text = "The site's services run with tighter restrictions on the server." },
+  { category = "security", area = "Planner", text = "Uploaded documents are deleted from the server along with their record." },
+  { category = "improved", area = "Site", text = "Updates pause background jobs while they install." },
+  { category = "fixed", area = "Planner", text = "Place searches reject positions that aren't on Earth." },
+  { category = "fixed", area = "Stays", text = "Both styles of Trip.com hotel link are recognised." },
+]
+
+[[release]]
+at = 2026-10-26T01:31:00+11:00
+title = "Recently updated"
+items = [
+  { category = "new", area = "Itinerary", text = "Each trip page lists what was added, changed or removed in the last 30 days. Visitors see changes to public plans only." },
+]
+
+[[release]]
+at = 2026-10-26T01:52:00+11:00
+title = "Cloudflare only"
+items = [
+  { category = "security", area = "Site", text = "Web traffic reaches the server only through Cloudflare." },
+]
+
+[[release]]
+at = 2026-10-26T13:47:00+11:00
+title = "What's new"
+items = [
+  { category = "new", area = "Site", text = "This change log, with every time in AEDT." },
+  { category = "improved", area = "Itinerary", text = "Recent updates show their exact time in AEDT when you hover over them." },
+]
+
+[[release]]
+at = 2026-10-26T14:06:00+11:00
+title = "Brisbane, Melbourne and Sydney transport"
+items = [
+  { category = "new", area = "Planner", text = "Transport can now be planned on Brisbane, Melbourne and Sydney's trains, metro, trams and ferries: pick the stations and the line, journey time and operator fill in from the official timetables." },
+  { category = "new", area = "Map", text = "Those journeys are drawn along the real line on the trip map, and each city's train, tram and ferry lines show in their official colours when a trip goes there." },
+  { category = "new", area = "Stays", text = "Stays and activities in those cities get directions from the nearest station, with the lines to take, changes and travel time, as Chinese cities do with MetroMan." },
+  { category = "improved", area = "Site", text = "The timetables refresh every week from Translink and Transport Victoria open data. Sydney's join once its Transport for NSW feed is connected." },
+]
+
+[[release]]
+at = 2026-10-26T14:34:00+11:00
+title = "Sydney joins"
+items = [
+  { category = "new", area = "Planner", text = "Sydney Trains and intercity lines, Sydney Metro, light rail, Sydney Ferries and the Manly Fast Ferry can now be planned from the official timetables, as Brisbane and Melbourne can." },
+  { category = "improved", area = "Stays", text = "Journeys where two lines make the same ride read \"T1 or T2\", and three or more read \"Any train\"." },
+]
+
+[[release]]
+at = 2026-10-26T17:19:00+11:00
+title = "Journey planner"
+items = [
+  { category = "new", area = "Site", text = "A public journey planner for Brisbane, Melbourne and Sydney: search for a park, beach, venue or address, or tap the map, and get up to three ways there by train, metro, tram and ferry, step by step and drawn on the map." },
+  { category = "new", area = "Site", text = "Live times from Translink and Transport for NSW where they're published, and the next departures from the stops near you." },
+  { category = "security", area = "Site", text = "Your location is used only when you ask, for that one answer, and is never stored, logged or shared." },
+]
+
+[[release]]
+at = 2026-10-26T18:17:00+11:00
+title = "Buses in the journey planner"
+items = [
+  { category = "new", area = "Site", text = "The journey planner now includes buses in Brisbane, Melbourne and Sydney, and Melbourne's SkyBus, so places like Bondi Beach and Coogee get a proper route." },
+  { category = "new", area = "Site", text = "Live bus times in Brisbane and Sydney, and bus departures in the list of what leaves nearby." },
+  { category = "improved", area = "Site", text = "Journey searches are much faster: most now take under a second." },
+  { category = "fixed", area = "Site", text = "The top menu no longer makes pages wider than a phone screen, and trip pages fit phones again." },
+]
+
+[[release]]
+at = 2026-10-26T18:42:00+11:00
+title = "Booking.com, Klook and Tripadvisor"
+items = [
+  { category = "new", area = "Planner", text = "Booking.com, Klook, Tripadvisor and Viator links fill in stays, activities and transport: the name, city and map pin, and for Booking.com the dates. The sites don't let servers read their pages, so the planner reads the link itself and finds the place on OpenStreetMap." },
+  { category = "new", area = "Planner", text = "Booking.com, Klook and Viator confirmations are read: hotel bookings go to a stay, and activity and transfer bookings to an activity or transport, with the booking number, times, meeting point and amount paid." },
+  { category = "security", area = "Planner", text = "Booking.com's PIN codes are removed from confirmations like other PINs." },
+  { category = "improved", area = "Planner", text = "Maps and routes use no Google services: Google Maps links are no longer read." },
+]
+
+[[release]]
+at = 2026-10-26T18:52:00+11:00
+title = "Walking along the streets"
+items = [
+  { category = "improved", area = "Site", text = "Journey planner walks now follow real streets, paths and bridges from OpenStreetMap, both on the map and in the walking times, so a stop just across a river is no longer treated as close by." },
+  { category = "improved", area = "Site", text = "Changes between stops use the same street walks, so a connection only appears where you can really walk it in time." },
+  { category = "security", area = "Site", text = "Walks are worked out on this site's own server: your location is still never sent to any other service." },
+]
+
+[[release]]
+at = 2026-10-26T19:38:00+11:00
+title = "Tidier itinerary"
+items = [
+  { category = "improved", area = "Itinerary", text = "The itinerary no longer shows \"Check\" links to timetable and fare sites; they're on the Transport page and transport form, where routes are added and edited." },
+]
+
+[[release]]
+at = 2026-10-26T19:42:00+11:00
+title = "Countdown"
+items = [
+  { category = "new", area = "Itinerary", text = "A live countdown above the itinerary: days, hours, minutes and seconds until the first departure, or a date and time you set with your own words in the trip's settings. During the trip it shows which day it is." },
+]
+
+[[release]]
+at = 2026-10-26T20:25:00+11:00
+title = "China trains and journeys into trips"
+items = [
+  { category = "new", area = "Site", text = "Journey planner has a China trains tab: choose two stations and a day to see China Railway's trains (from 12306) with times and seats left, filtered by kind of train and time. For days beyond the 15-day ticket window it shows the same weekday's trains and when tickets go on sale." },
+  { category = "new", area = "Site", text = "Journey planner can plan for later: choose Leave › Later for any date and time. Days past a city's published timetable use the same weekday from its latest week, and say so." },
+  { category = "new", area = "Planner", text = "Signed in, a journey from the planner, or a China train, can be added to a trip as private transport: one leg per ride with its stations, times, line and route on the map." },
+  { category = "improved", area = "Site", text = "Journey planner no longer asks for a city first: it works it out from the places you choose, and place search looks in all three cities until it knows." },
+]
+
+[[release]]
+at = 2026-10-26T20:41:00+11:00
+title = "International routes"
+items = [
+  { category = "improved", area = "Site", text = "Journey planner's China trains tab is now International routes, with China Railway's trains across mainland China and to Hong Kong West Kowloon." },
+  { category = "new", area = "Planner", text = "Signed in, International routes also finds direct flights between two airports on a day, with times, terminals and aircraft from AeroDataBox, and adds a flight to a trip as private transport. Each airport's day is looked up once and kept, so the free monthly allowance lasts; the units left are shown with the results." },
+]
+
+[[release]]
+at = 2026-10-26T21:22:00+11:00
+title = "Choose how you travel, and driving"
+items = [
+  { category = "new", area = "Site", text = "Journey planner has Travel by tickboxes: Train, Metro, Tram, Ferry, Bus and Drive. Your choices are remembered in your browser (places never are)." },
+  { category = "new", area = "Site", text = "Driving: tick Drive to compare a drive with the public transport options, or on its own, with turn-by-turn directions, the toll roads it uses and an Avoid tolls option. Drives are worked out on this site's server from OpenStreetMap roads, so your location isn't sent anywhere; times are for clear roads and don't include parking." },
+  { category = "new", area = "Site", text = "Walk up to 5, 10, 15, 20 or 30 minutes to and from stops, and Step-free only, which uses the accessible stops and services each city's timetable marks (Melbourne and Sydney; Brisbane's timetable doesn't say)." },
+  { category = "improved", area = "Site", text = "Leave now or on a date and at a time you pick, with separate date and time boxes; Now goes back to live times." },
+  { category = "new", area = "Planner", text = "Signed in, a drive can be added to a trip as a private car leg with its route on the map." },
+]
+
+[[release]]
+at = 2026-10-26T21:46:00+11:00
+title = "Nights come from the stays"
+items = [
+  { category = "improved", area = "Itinerary", text = "Where each night is spent now comes from the trip's stays: \"Overnight in…\", the overnight stops with their weather, the map's numbered stops, the quiet-day bands and the activity days all follow the stay booked for that night. Visitors see the city of every stay (never the hotel's name, address or location)." },
+  { category = "improved", area = "Planner", text = "Days no longer have an \"Overnight city\" of their own to keep in step with the stays: edit the stays instead. The cities already entered are kept, but no longer shown." },
+]
+
+[[release]]
+at = 2026-10-26T22:15:00+11:00
+title = "Drive when no stop is nearby, calendar and sharing"
+items = [
+  { category = "new", area = "Site", text = "With Drive ticked and no public transport stop within your walk of the start, the journey planner says so and drives you to a nearby station instead (allowing 5 minutes to park), with the drive all the way as another option." },
+  { category = "improved", area = "Site", text = "Driving now reaches every place the planner covers, such as the Gold Coast, Tweed and Sunshine Coast with Brisbane and the outer suburbs of Melbourne and Sydney. The wider road maps arrive over the next few hours." },
+  { category = "new", area = "Site", text = "Add to calendar saves a journey or drive as a calendar entry with every step and a reminder 10 minutes before you leave. It's made in your browser, so nothing is sent anywhere." },
+  { category = "new", area = "Site", text = "Share sends a link that opens the same journey, with a short summary. The places travel after the # in the link, so this site never receives them; if the start is your location, you choose whether to share it exactly or the first stop instead." },
+]
+
+[[release]]
+at = 2026-10-26T22:49:00+11:00
+title = "Select several stays"
+items = [
+  { category = "new", area = "Planner", text = "The Stays page has a tickbox on each stay and a Select all, so several stays can be made public or private, or deleted, together. Deleting lists exactly which stays will go and asks first." },
+]
+
+[[release]]
+at = 2026-10-26T23:19:00+11:00
+title = "Stays carry their nights and weather"
+items = [
+  { category = "improved", area = "Planner", text = "The planner's trip page no longer has an Overnight stops list under the map: each stay on the Stays page shows its trip days, nights, check-in and check-out times, weather and the activities planned on its days." },
+  { category = "improved", area = "Stays", text = "The trip's Stays page shows each stay's days, weather and what's planned, and check-in and check-out times for public stays. Private stays now appear too, with only their city, dates and weather (never the hotel or how to get there)." },
+  { category = "improved", area = "Planner", text = "On your map, each hotel pin carries its city's number and name, instead of a separate marker for the city. Visitors still see numbered city markers, never hotel locations." },
+]
+
+[[release]]
+at = 2026-10-28T23:46:00+11:00
+title = "Privacy policy and terms"
+items = [
+  { category = "new", area = "Site", text = "The Legals page now has a privacy policy, terms and conditions, and credits for the maps, timetables and other data the site uses." },
+  { category = "security", area = "Site", text = "Server access logs now start fresh each day and are deleted after 30 days." },
+  { category = "improved", area = "Site", text = "The unfinished Places and About pages were removed. Their old links now go to the home page." },
+]
+
+[[release]]
+at = 2026-10-28T23:01:00+10:00
+title = "A new address: trips.aarondaws.com.au"
+items = [
+  { category = "improved", area = "Site", text = "The site moved to trips.aarondaws.com.au and is now called Aaron Daws Trips. The old travels.aarondaws.com.au address no longer works, so update any bookmarks, shared links or calendar subscriptions." },
+]
+
+[[release]]
+at = 2026-10-31T13:55:00+11:00
+title = "Follow a flight live"
+items = [
+  { category = "new", area = "Map", text = "While a flight on a trip is in the air, the map shows the plane where it was last heard, the path it has flown so far, and its height and speed. Over the sea, out of receiver range, the plane's position is estimated." },
+  { category = "new", area = "Itinerary", text = "Flights show whether they're in the air or have landed, with a Show the plane button." },
+  { category = "improved", area = "Map", text = "After landing, a flight's line on the map becomes the path it actually flew that day." },
+  { category = "improved", area = "Site", text = "The Legals page now explains live flight positions." },
+]
+
+[[release]]
+at = 2026-11-15T11:17:00+10:00
+title = "Tighter privacy and Melbourne timetables"
+items = [
+  { category = "security", area = "Itinerary", text = "A public taxi or transfer to or from a hotel now shows only \"Hotel\" and the city, never the hotel itself, and isn't drawn on the public map. The same goes for the trip's calendar file." },
+  { category = "security", area = "Itinerary", text = "The countdown and the map's local transport lines now count public plans only." },
+  { category = "security", area = "Site", text = "The journey planner no longer sets a cookie for visitors, so the whole site is cookie-free, as the privacy policy says." },
+  { category = "security", area = "Site", text = "Stricter browser security rules are now enforced on every page, and oversized requests are turned away." },
+  { category = "fixed", area = "Site", text = "Melbourne's train, tram, V/Line and bus timetables update again: PTV moved its timetable file, and the site now finds the new address by itself." },
+  { category = "fixed", area = "Itinerary", text = "A journey leaving just before midnight now shows \"+1\" on its arrival when it arrives the next day." },
+]
+
+[[release]]
+at = 2026-11-15T11:35:00+10:00
+title = "Booking status and costs"
+items = [
+  { category = "new", area = "Planner", text = "Stays and activities now have a status (idea, planned or booked), as transport already did, shown on the Stays and Activities pages." },
+  { category = "new", area = "Planner", text = "Stays, activities and transport have a booking cost. Entering it, or filling it in from a booking link or confirmation that shows the price, adds it to the budget and marks the booking as booked." },
+  { category = "improved", area = "Planner", text = "The budget now shows what has been paid, without estimates." },
+]
+
+[[release]]
+at = 2026-11-15T11:59:00+10:00
+title = "Ideas, estimates and confirmations"
+items = [
+  { category = "new", area = "Planner", text = "Ideas can have an estimated cost. The budget's estimate is everything paid so far plus the estimated cost of each stay, transport and activity that's still an idea." },
+  { category = "improved", area = "Planner", text = "New activities start as ideas." },
+  { category = "improved", area = "Planner", text = "The budget lists each item's status, estimate and cost in date order, without the old tick columns." },
+  { category = "new", area = "Planner", text = "Booked stays, transport and activities have an Add confirmation button: add the confirmation link, or paste or upload the confirmation, to fill in the confirmed details and what it cost." },
+  { category = "improved", area = "Planner", text = "Bookings can be imported from the Transport and Activities pages too, not just Stays." },
+]
+
+[[release]]
+at = 2026-11-15T12:33:00+10:00
+title = "Planned or booked, one cost, and smarter booking links"
+items = [
+  { category = "improved", area = "Planner", text = "Stays, transport and activities are now either planned or booked: ideas became planned, and each one went on the checklist to review." },
+  { category = "improved", area = "Planner", text = "One cost per stay, transport or activity: while it's planned, the cost is an estimate counted in the budget's estimate; once it's booked, it's what the booking cost." },
+  { category = "new", area = "Planner", text = "Planned items have Add confirmation; booked ones have View confirmation, which opens the booking's confirmation page." },
+  { category = "new", area = "Planner", text = "Each stay, transport and activity says whether it was added from a booking link, an imported confirmation or by hand." },
+  { category = "improved", area = "Planner", text = "Filling one in from a booking link marks it planned and picks up a rough price, opening or check-in times, address and contact details where the page has them, and flags what's missing." },
+]
+
+[[release]]
+at = 2026-11-15T12:38:00+10:00
+title = "Times in AEST, and a simpler header"
+items = [
+  { category = "improved", area = "Site", text = "Every time on this page is now AEST (UTC+10), all year round, and so are the exact times of recent updates on trip pages." },
+  { category = "fixed", area = "Site", text = "Five entries showed the wrong time; they now show when each change went live." },
+  { category = "improved", area = "Site", text = "The Trips tab at the top of the page is gone: the site name takes you to the trips." },
+]
+
+[[release]]
+at = 2026-11-15T12:54:00+10:00
+title = "Confirmations you can open, details from links, and who paid"
+items = [
+  { category = "improved", area = "Planner", text = "View confirmation now only appears when a booking's confirmation was added from its link or as an uploaded file, and an uploaded confirmation is kept with the trip's documents so it opens from there." },
+  { category = "new", area = "Planner", text = "A planned stay, transport or activity with a link has its details read from that page as soon as it's saved, filling only what's empty, and a Refresh details button tries again." },
+  { category = "new", area = "Planner", text = "On the budget, tick several lines to set who paid for them all at once." },
+]

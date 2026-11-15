@@ -1,0 +1,95 @@
+# Global options
+{
+	# Certificates via DNS-01: Caddy creates a temporary TXT record through the
+	# Cloudflare API, so validation never has to pass through the Cloudflare proxy.
+	acme_dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+
+	# Cloudflare sits in front of every site: trust its edge IP ranges and take the
+	# visitor's real address from CF-Connecting-IP (available as {client_ip}).
+	# Ranges from https://www.cloudflare.com/ips/
+	servers {
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+	}
+
+	# Optional: set an email to get certificate expiry notices from Let's Encrypt
+	# email you@example.com
+}
+
+# Shared settings for every site
+(common) {
+	encode zstd gzip
+	header {
+		# A year of HTTPS-only, including any sub-subdomains.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Cross-Origin-Opener-Policy "same-origin"
+		-Server
+	}
+}
+
+trips.aarondaws.com.au {
+	import common
+	# The journey planner may ask for the visitor's location (only on this site, only when they tap the button).
+	header Permissions-Policy "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()"
+
+	# The planner and admin only answer requests that came through Cloudflare,
+	# where Cloudflare Access applies; anything reaching the server directly gets a 404.
+	@not_via_cloudflare {
+		path /manage /manage/* /backstage /backstage/*
+		not remote_ip 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+	}
+	handle @not_via_cloudflare {
+		respond "Not found" 404
+	}
+
+	# Visitors only ever send small requests (a journey search is a few KB), so their bodies stop at 1 MB:
+	# nobody can make the server hold big uploads in memory. The planner (documents up to 20 MB), the admin
+	# and inbound email keep Django's own limits.
+	@public_body not path /manage /manage/* /backstage /backstage/* /inbound/*
+	request_body @public_body {
+		max_size 1MB
+	}
+
+	# Static files (CSS, images, admin assets) have hashed names, so cache them forever.
+	handle_path /static/* {
+		root * /var/www/trips.aarondaws.com.au/static
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Everything else is the Django app (gunicorn, see trips.service).
+	handle {
+		reverse_proxy 127.0.0.1:8001 {
+			header_up X-Real-IP {client_ip}
+		}
+	}
+
+	# Access logs: a new file each day, and files older than 30 days are deleted (as /legals/#privacy says).
+	log {
+		output file /var/log/caddy/trips.aarondaws.com.au.log {
+			roll_interval 24h
+			roll_keep 30
+			roll_keep_for 720h
+		}
+	}
+}
+
+jackyoung.au {
+	import common
+	# Nothing here needs the camera, microphone, location, payments or USB.
+	header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+	# A single self-contained page: nothing to load but its own inline styles.
+	header Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	root * /var/www/jackyoung.au/public
+	file_server
+	log {
+		output file /var/log/caddy/jackyoung.au.log
+	}
+}
+
+www.jackyoung.au {
+	redir https://jackyoung.au{uri} permanent
+}

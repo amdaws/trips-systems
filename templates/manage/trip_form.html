@@ -1,0 +1,54 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}{% if creating %}New trip{% else %}Settings{% endif %}{% endblock %}
+
+{% block manage_content %}
+{% if creating %}
+<div class="toolbar"><h1 style="font-size: var(--step-3)">New trip</h1><a class="btn btn--small" href="{% url 'manage:dashboard' %}">← Back</a></div>
+{% endif %}
+
+<form method="post" class="form stack">
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert--error">{{ form.non_field_errors }}</div>{% endif %}
+  <div class="form-grid">
+    {% for field in form %}{% include "manage/_field.html" %}{% endfor %}
+  </div>
+
+  <fieldset class="card card--flat stack" style="--stack: var(--space-xs)">
+    <legend class="small" style="font-weight:600">Travellers</legend>
+    <p class="small muted">Used for "paid by" and the per-person budget.</p>
+    {{ formset.management_form }}
+    {% for f in formset %}
+    <div class="form-grid" style="--field-min: 9rem">
+      {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+      {% include "manage/_field.html" with field=f.name %}
+      {% include "manage/_field.html" with field=f.initials %}
+      {% if f.instance.pk %}{% include "manage/_field.html" with field=f.DELETE %}{% endif %}
+    </div>
+    {% endfor %}
+  </fieldset>
+
+  <div class="btn-row"><button class="btn btn--primary" type="submit">{% if creating %}Create trip{% else %}Save settings{% endif %}</button></div>
+</form>
+
+{% if share %}
+<section class="card stack">
+  <h2 style="font-size: var(--step-1)">Sharing and calendar</h2>
+  <div class="stack" style="--stack: var(--space-xs)">
+    {% if share.public %}<p><strong>Public page:</strong> <a href="{{ share.public }}" target="_blank" rel="noopener">{{ share.public }}</a></p>{% endif %}
+    {% if share.unlisted %}<p><strong>Secret link</strong> (works for Public and Unlisted): <a href="{{ share.unlisted }}" target="_blank" rel="noopener">{{ share.unlisted }}</a></p>{% else %}<p class="muted small">This trip is private. Choose Unlisted or Public above to share it.</p>{% endif %}
+    <p><strong>Private calendar</strong> (full details; subscribe from your phone, keep it to yourself):<br><code class="small" style="word-break: break-all">{{ share.calendar }}</code></p>
+  </div>
+  <div class="btn-row">
+    <form method="post" action="{% url 'manage:trip_new_link' trip.pk 'share' %}">{% csrf_token %}<button class="btn btn--small" type="submit">Make a new secret link</button></form>
+    <form method="post" action="{% url 'manage:trip_new_link' trip.pk 'calendar' %}">{% csrf_token %}<button class="btn btn--small" type="submit">Make a new calendar link</button></form>
+  </div>
+</section>
+
+<section class="card stack">
+  <h2 style="font-size: var(--step-1)">Delete trip</h2>
+  <p class="small muted">Removes the trip with all its days, transport, stays, budget, checklist and documents.</p>
+  <div><a class="btn btn--danger" href="{% url 'manage:trip_delete' trip.pk %}">Delete this trip…</a></div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Journey planner · {{ site.name }}{% endblock %}
+{% block description %}Plan a trip by train, metro, tram, ferry and bus in Brisbane, Melbourne and Sydney, with live times, and find international routes such as China's trains.{% endblock %}
+{% block extra_head %}
+  <link rel="stylesheet" href="{% static 'vendor/leaflet/leaflet.css' %}">
+{% endblock %}
+{% block header_width %}container--app{% endblock %}
+{% block footer_width %}container--app{% endblock %}
+
+{% block content %}
+<div class="container container--app journey" data-journey
+     data-plan-url="{% url 'core:journey_plan' %}" data-nearby-url="{% url 'core:journey_nearby' %}" data-places-url="{% url 'core:journey_places' %}"
+     data-stations-url="{% url 'core:journey_china_stations' %}" data-trains-url="{% url 'core:journey_china_trains' %}"{% if trips is not None %} data-add-url="{% url 'core:journey_add' %}"{% endif %}{% if flight_search %}
+     data-airports-url="{% url 'core:journey_airports' %}" data-flights-url="{% url 'core:journey_flights' %}"{% endif %}>
+  {% if trips is not None %}{% csrf_token %}{% endif %}{# staff only: visitors get no cookie #}
+  <section class="journey__panel" aria-labelledby="journey-title">
+    <div class="journey__intro">
+      <h1 id="journey-title">Journey planner</h1>
+      <p class="muted">Trains, metro, trams, ferries and buses in Brisbane, Melbourne and Sydney with live times, and international routes.</p>
+    </div>
+
+    <div class="segmented" role="tablist" aria-label="Where">
+      <button type="button" class="segmented__item" role="tab" id="journey-tab-city" aria-controls="journey-city" aria-selected="true" data-tab="city">Australian cities</button>
+      <button type="button" class="segmented__item" role="tab" id="journey-tab-world" aria-controls="journey-world" aria-selected="false" data-tab="world" tabindex="-1">International routes</button>
+    </div>
+
+    <div id="journey-city" class="journey__tab" role="tabpanel" aria-labelledby="journey-tab-city" data-tab-panel="city">
+      {% if cities %}
+      <form class="journey-form" data-journey-form novalidate>
+        <div class="journey-field">
+          <label for="journey-from">From</label>
+          <div class="journey-field__row">
+            <input id="journey-from" class="input" type="search" autocomplete="off" spellcheck="false" placeholder="Search a place, or tap the map" data-place="from" aria-controls="journey-from-results" aria-autocomplete="list">
+            <button type="button" class="btn" data-locate title="Use my location">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="3"/><path d="M10 2.5v2.5M10 15v2.5M2.5 10H5M15 10h2.5"/><circle cx="10" cy="10" r="6"/></svg>
+              <span>My location</span>
+            </button>
+          </div>
+          <ul id="journey-from-results" class="place-results" data-results="from" role="listbox" hidden></ul>
+        </div>
+        <div class="journey-field">
+          <label for="journey-to">To</label>
+          <div class="journey-field__row">
+            <input id="journey-to" class="input" type="search" autocomplete="off" spellcheck="false" placeholder="Where to? A park, beach, venue or address" data-place="to" aria-controls="journey-to-results" aria-autocomplete="list">
+            <button type="button" class="btn btn--subtle" data-swap title="Swap start and destination" aria-label="Swap start and destination">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v13M3 13l3 3 3-3M14 17V4M11 7l3-3 3 3"/></svg>
+            </button>
+          </div>
+          <ul id="journey-to-results" class="place-results" data-results="to" role="listbox" hidden></ul>
+        </div>
+        <fieldset class="journey-modes">
+          <legend>Travel by</legend>
+          <div class="mode-chips">
+            {% for mode in modes %}<label class="mode-chip" title="{{ mode.title }}"><input type="checkbox" value="{{ mode.key }}" data-mode checked><span>{{ mode.label }}</span></label>
+            {% endfor %}
+          </div>
+          <div class="journey-prefs small">
+            <label>Walk up to
+              <select class="input input--inline" data-walk>
+                {% for minutes in walks %}<option value="{{ minutes }}"{% if minutes == 15 %} selected{% endif %}>{{ minutes }} min</option>{% endfor %}
+              </select>
+            </label>
+            <label><input type="checkbox" data-step-free> Step-free only</label>
+            <label data-tolls-option><input type="checkbox" data-avoid-tolls> Avoid tolls</label>
+          </div>
+        </fieldset>
+        <div class="journey-field">
+          <span class="journey-field__label" id="journey-when-label">Leave</span>
+          <div class="journey-field__row journey-when" role="group" aria-labelledby="journey-when-label">
+            <input class="input" type="date" data-when-date aria-label="Date">
+            <input class="input" type="time" data-when-time aria-label="Time, in the city's own time">
+            <button type="button" class="btn btn--subtle" data-when-now aria-pressed="true">Now</button>
+          </div>
+          <p class="hint" data-when-hint>Leaving now, with live times.</p>
+        </div>
+        <div class="journey-form__actions">
+          <button type="submit" class="btn btn--primary">Plan journey</button>
+          <button type="button" class="btn" data-nearby>Departures near the start</button>
+        </div>
+        <p class="hint" data-status aria-live="polite"></p>
+      </form>
+
+      <div class="journey__results" data-results-panel aria-live="polite"></div>
+      {% else %}
+      <p class="muted">The timetables are still loading. Please check back in a few minutes.</p>
+      {% endif %}
+    </div>
+
+    <div id="journey-world" class="journey__tab" role="tabpanel" aria-labelledby="journey-tab-world" data-tab-panel="world" hidden>
+      {% if flight_search %}
+      <div class="segmented" role="group" aria-label="Trains or flights">
+        <button type="button" class="segmented__item" data-world-mode="trains" aria-pressed="true">Trains in China</button>
+        <button type="button" class="segmented__item" data-world-mode="flights" aria-pressed="false">Flights</button>
+      </div>
+      {% endif %}
+      <div class="journey__tab" data-world-panel="trains">
+      <p class="muted small">Trains across mainland China and to Hong Kong West Kowloon, from China Railway (12306).</p>
+      <form class="journey-form" data-china-form novalidate>
+        <div class="journey-field">
+          <label for="china-from">From station</label>
+          <div class="journey-field__row">
+            <input id="china-from" class="input" type="search" autocomplete="off" spellcheck="false" placeholder="City or station, e.g. Guangzhou South or 广州南" data-station="from" aria-controls="china-from-results" aria-autocomplete="list">
+          </div>
+          <ul id="china-from-results" class="place-results" data-station-results="from" role="listbox" hidden></ul>
+        </div>
+        <div class="journey-field">
+          <label for="china-to">To station</label>
+          <div class="journey-field__row">
+            <input id="china-to" class="input" type="search" autocomplete="off" spellcheck="false" placeholder="City or station, e.g. Guilin North" data-station="to" aria-controls="china-to-results" aria-autocomplete="list">
+            <button type="button" class="btn btn--subtle" data-china-swap title="Swap stations" aria-label="Swap stations">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v13M3 13l3 3 3-3M14 17V4M11 7l3-3 3 3"/></svg>
+            </button>
+          </div>
+          <ul id="china-to-results" class="place-results" data-station-results="to" role="listbox" hidden></ul>
+        </div>
+        <div class="journey-field">
+          <label for="china-date">Date</label>
+          <div class="journey-field__row">
+            <input id="china-date" class="input" type="date" data-china-date required>
+          </div>
+        </div>
+        <div class="journey-form__actions">
+          <button type="submit" class="btn btn--primary">Find trains</button>
+        </div>
+        <p class="hint" data-china-status aria-live="polite"></p>
+      </form>
+      <div class="journey__results" data-china-results aria-live="polite"></div>
+      </div>
+      {% if flight_search %}
+      <div class="journey__tab" data-world-panel="flights" hidden>
+        <p class="muted small">Direct flights between two airports on a day, from AeroDataBox's schedules. Only you see this while signed in.</p>
+        <form class="journey-form" data-flight-form novalidate>
+          <div class="journey-field">
+            <label for="flight-from">From airport</label>
+            <div class="journey-field__row">
+              <input id="flight-from" class="input" type="search" autocomplete="off" spellcheck="false" placeholder="City, airport or code, e.g. BNE" data-airport="from" aria-controls="flight-from-results" aria-autocomplete="list">
+            </div>
+            <ul id="flight-from-results" class="place-results" data-airport-results="from" role="listbox" hidden></ul>
+          </div>
+          <div class="journey-field">
+            <label for="flight-to">To airport</label>
+            <div class="journey-field__row">
+              <input id="flight-to" class="input" type="search" autocomplete="off" spellcheck="false" placeholder="City, airport or code, e.g. HKG" data-airport="to" aria-controls="flight-to-results" aria-autocomplete="list">
+              <button type="button" class="btn btn--subtle" data-flight-swap title="Swap airports" aria-label="Swap airports">
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v13M3 13l3 3 3-3M14 17V4M11 7l3-3 3 3"/></svg>
+              </button>
+            </div>
+            <ul id="flight-to-results" class="place-results" data-airport-results="to" role="listbox" hidden></ul>
+          </div>
+          <div class="journey-field">
+            <label for="flight-date">Date (leaving, local time)</label>
+            <div class="journey-field__row">
+              <input id="flight-date" class="input" type="date" data-flight-date required>
+            </div>
+          </div>
+          <div class="journey-form__actions">
+            <button type="submit" class="btn btn--primary">Find flights</button>
+          </div>
+          <p class="hint" data-flight-status aria-live="polite"></p>
+        </form>
+        <div class="journey__results" data-flight-results aria-live="polite"></div>
+      </div>
+      {% endif %}
+    </div>
+
+    <details class="journey__privacy">
+      <summary>Your location stays private</summary>
+      <p class="small">Your browser asks before sharing your location, and only when you tap <strong>My location</strong>. It's sent to this site to work out your routes and nearby departures, used for that answer only, and never saved, logged or passed on. Place searches send only the words you type and the city to Photon, an OpenStreetMap search service. China train searches send only the two stations and the date to China Railway (12306). The map pictures come from OpenStreetMap, which sees the area you're viewing, as with any online map.</p>
+    </details>
+  </section>
+
+  <div class="journey__map">
+    <div id="journey-map" class="map" role="region" aria-label="Map. Tap a spot to start or end there."></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block footer_extra %}<p>Timetables and live times: {{ credits }} (CC BY 4.0) · China trains: <a href="https://www.12306.cn/en/index.html">China Railway 12306</a>{% if flight_search %} · Flights: <a href="https://aerodatabox.com/">AeroDataBox</a>{% endif %} · Place search: <a href="https://photon.komoot.io/">Photon</a> · Maps and places © OpenStreetMap contributors</p>{% endblock %}
+
+{% block scripts %}
+{{ cities|json_script:"journey-cities" }}
+{% if trips is not None %}{{ trips|json_script:"journey-trips" }}{% endif %}
+<script src="{% static 'vendor/leaflet/leaflet.js' %}"></script>
+<script src="{% static 'js/journey.js' %}"></script>
+{% endblock %}

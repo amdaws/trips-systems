@@ -40,15 +40,18 @@ def blocked_note(found, pinned):
     else:
         got = (", so the name and city came from the link" if found.get("city") else ", so the name came from the link") + (
             ", and the map pin from OpenStreetMap" if pinned else "")
-    return f"{site} doesn't let the server read its pages{got}. For its price, opening hours and contact details, paste the page's text in the box below."
+    return (f"{site} doesn't let the server read its pages{got}. For its price, opening hours and contact details, "
+            "use Send to Trips on the page in your browser, or paste its text in the box below.")
 
 
-def read_link(url, name_hint=""):
+def read_link(url, name_hint="", read_page=None):
     """{'name', 'address', 'description', 'lat', 'lon', 'url', 'site'} (whatever was found) for a link.
 
     When the site turns the server away (Trip.com usually does), what the link's address says is
     used instead: a Trip.com sight's name and city, or else `name_hint` (the activity's title as typed),
-    so the place can still be found on the map. Those results carry "blocked": True."""
+    so the place can still be found on the map. Those results carry "blocked": True.
+    `read_page(page)`, when given, reads a page that was fetched instead of extract (link_details
+    passes one that has Claude read it too)."""
     url = url.strip()
     if is_google(url):
         raise PageError(NO_GOOGLE)
@@ -59,7 +62,8 @@ def read_link(url, name_hint=""):
     found = from_map_link(url)
     if not found:
         try:
-            found = extract(fetch_page(url), url)
+            page = fetch_page(url)
+            found = read_page(page) if read_page else extract(page, url)
         except BlockedError as exc:
             found = from_blocked_link(url, name_hint, exc)
     found.setdefault("url", url)
@@ -80,7 +84,7 @@ def from_blocked_link(url, name_hint, exc):
         if site_links.is_tripcom(url):
             raise BlockedError(
                 "Trip.com doesn't let the server read its pages, and this link doesn't say what the activity is. "
-                "Type its name in Title and press Fill in again to find it on the map, or paste the page's text in the box below.")
+                "Type its name in Title and press Fill in again to find it on the map, or use Send to Trips on the page in your browser.")
         raise exc
     found["url"] = url
     return found

@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 
 MAX_CHARS = 60_000  # a page's first 60,000 characters: the details come before the reviews and footers
 TIMEOUT = 25  # seconds: the web server gives a request 30, and the pattern readers are the fallback
+SHORTEST = 5  # seconds: with less time than this left in the request, Claude isn't asked
 SYSTEM = (
     "You read travel booking pages and booking confirmations for a private trip planner, and fill in a form "
     "from them. Use only what the text says. When it doesn't state something, leave that field as an empty "
@@ -105,20 +106,20 @@ def schema(kind):
     return {"type": "object", "properties": properties, "required": list(properties), "additionalProperties": False}
 
 
-def _client():
+def _client(timeout=TIMEOUT):
     import anthropic
 
-    return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=TIMEOUT, max_retries=0)
+    return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=timeout, max_retries=0)
 
 
-def _ask(content, output_format=None, max_tokens=4000):
+def _ask(content, output_format=None, max_tokens=4000, timeout=TIMEOUT):
     """Claude's answer as text, or None when it declined or ran out of room."""
     model = settings.CLAUDE_MODEL
     params = {"model": model, "max_tokens": max_tokens, "system": SYSTEM, "messages": [{"role": "user", "content": content}],
               "output_config": {"effort": "low", **({"format": output_format} if output_format else {})}}
     if not model.startswith("claude-haiku"):  # Haiku has no server-side fallback; the others retry a decline on another model
         params.update(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
-    response = _client().beta.messages.create(**params)
+    response = _client(timeout).beta.messages.create(**params)
     if response.stop_reason in ("refusal", "max_tokens"):
         log.warning("Claude didn't finish reading (%s)", response.stop_reason)
         return None
@@ -143,17 +144,22 @@ def _cached(kind, text, read):
     return fields
 
 
-def read(kind, text, hint=""):
+def read(kind, text, hint="", timeout=TIMEOUT):
     """What Claude read in `text` for the form `kind` ("activity", "stay", "leg" or "confirmation"):
     only the fields it found, cleaned (see clean); {} without a key or an answer. `hint` says where the
-    text came from (a page's address, an email's subject)."""
+    text came from (a page's address, an email's subject). `timeout` is what's left of the request's
+    time for Claude (a page fetched from a link has used some); under SHORTEST, only an answer already
+    kept is used."""
     text = (text or "").strip()[:MAX_CHARS]
     if not enabled() or not text:
         return {}
     content = (f"Where this came from: {hint[:500]}\n\n" if hint else "") + f"<text>\n{text}\n</text>"
 
     def ask():
-        answer = _ask(content, {"type": "json_schema", "schema": schema(kind)})
+        if timeout < SHORTEST:
+            log.warning("No time left for Claude to read the %s", kind)
+            return None
+        answer = _ask(content, {"type": "json_schema", "schema": schema(kind)}, timeout=timeout)
         return clean(kind, json.loads(answer)) if answer else None
 
     return _cached(kind, f"{hint}\n{text}", ask)

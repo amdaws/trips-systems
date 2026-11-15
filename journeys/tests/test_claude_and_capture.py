@@ -10,7 +10,7 @@ from unittest import mock
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from journeys import booking_costs, booking_import, claude_read, link_details
+from journeys import booking_costs, booking_import, claude_read, link_details, stay_import
 from journeys.models import ClaudeRead, Item
 
 from .test_plans_costs import PlannerCase
@@ -204,3 +204,90 @@ class SendToTripsTests(PlannerCase):
     def test_forms_point_to_send_to_trips(self):
         self.assertIn(reverse("manage:capture"), self.page("item_create"))
         self.assertIn(reverse("manage:capture"), self.client.get(reverse("manage:imports")).content.decode())
+
+
+LINK = "https://au.trip.com/travel-guide/attraction/carlton/melbourne-museum-87712"
+MUSEUM_PAGE = """<html><head><title>Melbourne Museum Tickets - Prices &amp; Opening Hours | Trip.com</title>
+<meta name="description" content="Natural and cultural history museum in Carlton Gardens."></head>
+<body><h1>Melbourne Museum</h1><p>Opening Hours</p><p>Daily 09:00-17:00</p><p>Adult A$ 15.00</p>
+<p>Address: 11 Nicholson St, Carlton VIC 3053</p></body></html>"""
+MUSEUM = {"name": "Melbourne Museum", "address": "11 Nicholson St, Carlton VIC 3053", "city": "Melbourne", "phone": "13 11 02",
+          "email": "", "price": "15", "currency": "AUD", "price_per_person": True, "opening_hours": "Daily 09:00–17:00",
+          "description": "Natural and cultural history museum in Carlton Gardens."}
+ROBOT_CHECK = "<html><head><title>Trip.com-Verification</title></head><body>Please complete the captcha to continue.</body></html>"
+
+
+def clock(*readings):
+    """A stand-in for link_details' clock: time.monotonic() gives these readings in turn."""
+    return mock.patch("journeys.link_details.time", SimpleNamespace(monotonic=mock.Mock(side_effect=list(readings))))
+
+
+@KEY
+class FetchedLinkTests(PlannerCase):
+    """A page the server fetched from a pasted link is read by Claude too, as sent and pasted pages are."""
+
+    def no_map_search(self):
+        return mock.patch("journeys.link_details.geocode.search", return_value=[])
+
+    def test_claude_reads_a_fetched_activity_page(self):
+        patch, client = claude(answer(MUSEUM))
+        with patch, mock.patch("journeys.activity_import.fetch_page", return_value=MUSEUM_PAGE), self.no_map_search():
+            fields = link_details.read_activity(self.trip, LINK, day=self.day)["fields"]
+        self.assertEqual((fields["read_by"], fields["phone"], fields["opening_hours"]), ("claude", "13 11 02", "Daily 09:00–17:00"))
+        self.assertEqual((fields["amount"], fields["currency"]), ("15", "AUD"))
+        sent = client.beta.messages.create.call_args.kwargs["messages"][0]["content"]
+        self.assertIn("Melbourne Museum Tickets - Prices & Opening Hours | Trip.com", sent)  # the title, from the page's head
+        self.assertIn("Natural and cultural history museum", sent)  # and its description
+        self.assertIn("Daily 09:00-17:00", sent)
+        self.assertIn(LINK, sent)  # where it came from
+
+    def test_claude_reads_a_fetched_hotel_page(self):
+        page = "<html><head><title>Hotel Example Melbourne | Trip.com</title></head><body>Hotel Example Melbourne<br>Check-in from 2:00 PM</body></html>"
+        reply = {"name": "Hotel Example Melbourne", "address": "1 Example St, Melbourne VIC 3000", "city": "Melbourne",
+                 "phone": "+61 3 9000 0000", "email": "", "price": "", "currency": "", "check_in_time": "14:00", "check_out_time": "11:00"}
+        patch, _client = claude(answer(reply))
+        with patch, mock.patch("journeys.stay_import.fetch_page", return_value=page):
+            fields = link_details.read_stay("https://au.trip.com/hotels/melbourne-hotel-detail-1/")["fields"]
+        self.assertEqual((fields["read_by"], fields["check_in_time"], fields["phone"]), ("claude", "14:00", "+61 3 9000 0000"))
+
+    def test_claude_reads_a_fetched_transfer_page(self):
+        page = "<html><head><title>Private transfer from Guilin Airport to Yangshuo | Trip.com</title></head><body>From A$ 120</body></html>"
+        reply = {"price": "120", "currency": "AUD", "operator": "Guilin Car Service", "origin": "Guilin Airport",
+                 "destination": "Yangshuo", "seat_class": "5-seat car"}
+        patch, _client = claude(answer(reply))
+        with patch, mock.patch("journeys.leg_import.fetch_page", return_value=page), self.no_map_search():
+            fields = link_details.read_leg(self.trip, "https://au.trip.com/things-to-do/detail/36394123/")["fields"]
+        self.assertEqual((fields["read_by"], fields["operator"], fields["amount"]), ("claude", "Guilin Car Service", "120"))
+
+    def test_a_robot_check_isnt_sent_to_claude(self):
+        with mock.patch("journeys.claude_read._client", side_effect=AssertionError("asked Claude")), self.no_map_search():
+            with mock.patch("journeys.activity_import.fetch_page", return_value=ROBOT_CHECK):
+                data = link_details.read_activity(self.trip, LINK)
+            with mock.patch("journeys.stay_import.fetch_page", return_value=ROBOT_CHECK), \
+                    self.assertRaisesMessage(stay_import.BlockedError, "Use Send to Trips"):
+                link_details.read_stay("https://au.trip.com/hotels/melbourne-hotel-detail-1/")
+        self.assertEqual((data["fields"]["name"], data["fields"]["blocked"]), ("Melbourne Museum", "address"))  # from the link
+        self.assertIn("use Send to Trips", data["note"])
+
+    def test_claude_gets_what_the_fetch_left(self):
+        patch, _client = claude(answer(MUSEUM))
+        with patch as make_client, clock(100.0, 112.0), mock.patch("journeys.activity_import.fetch_page", return_value=MUSEUM_PAGE), \
+                self.no_map_search():
+            link_details.read_activity(self.trip, LINK)
+        make_client.assert_called_once_with(13.0)  # its 25 seconds, less the 12 the fetch took
+
+    def test_no_time_left_keeps_the_patterns(self):
+        with clock(100.0, 122.0), mock.patch("journeys.claude_read._client", side_effect=AssertionError("asked Claude")), \
+                mock.patch("journeys.activity_import.fetch_page", return_value=MUSEUM_PAGE), self.no_map_search(), \
+                self.assertLogs("journeys.claude_read", "WARNING"):
+            fields = link_details.read_activity(self.trip, LINK)["fields"]
+        self.assertNotIn("read_by", fields)
+        self.assertEqual(fields["address"], "11 Nicholson St, Carlton VIC 3053")  # the pattern readers' answer stands
+
+    @override_settings(ANTHROPIC_API_KEY="")
+    def test_without_a_key_nothing_is_sent(self):
+        with mock.patch("journeys.claude_read._client", side_effect=AssertionError("asked Claude")), \
+                mock.patch("journeys.activity_import.fetch_page", return_value=MUSEUM_PAGE), self.no_map_search():
+            fields = link_details.read_activity(self.trip, LINK)["fields"]
+        self.assertNotIn("read_by", fields)
+        self.assertEqual(fields["address"], "11 Nicholson St, Carlton VIC 3053")

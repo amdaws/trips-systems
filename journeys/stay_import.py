@@ -105,7 +105,8 @@ def fetch_page(url):
                 url = urllib.parse.urljoin(url, exc.headers["Location"])
                 continue
             if exc.code in (403, 429, 432, 503):
-                raise BlockedError("That site blocks automatic reading. Paste the page text below instead.")
+                raise BlockedError("That site blocks automatic reading. Use Send to Trips on the page in your browser, "
+                                   "or paste its text below.")
             raise PageError(f"The site answered with an error ({exc.code}).")
         except (urllib.error.URLError, TimeoutError) as exc:
             raise PageError(f"The site didn't respond ({getattr(exc, 'reason', exc)}).")
@@ -266,6 +267,7 @@ def extract(page, url=""):
     found = {k: (str(v)[:300] if not isinstance(v, (int, float)) else v) for k, v in found.items() if v}
     if not any(k in found for k in ("address", "phone", "check_in_time", "lat")):
         if re.search(r"challenge|captcha|verify you are human", page[:200000], re.I):
-            raise BlockedError("The site showed a robot check instead of the page. Paste the page text below instead.")
+            raise BlockedError("The site showed a robot check instead of the page. Use Send to Trips on the page in your browser, "
+                               "or paste its text below.")
         raise PageError("Couldn't find hotel details on that page. Paste the page text below instead.")
     return found

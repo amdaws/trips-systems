@@ -17,7 +17,8 @@ Django 6.1 journey planner for Aaron Daws Trips.
   pages Trip.com won't show the server, are read from the link's address (name and city) or the title as
   typed, then pinned with OpenStreetMap (`site_links.tripcom_activity`). **Send to Trips** (`/manage/capture/`) is a
   bookmarklet that sends the page as your browser shows it (`journeys/bookmarklet.js`, `static/js/capture.js`), so
-  blocked sites can still be read. With `ANTHROPIC_API_KEY` set, Claude also reads pasted text, sent pages,
+  blocked sites can still be read. With `ANTHROPIC_API_KEY` set, Claude also reads pages fetched from a link (in what's
+  left of its 25 seconds; never a robot check), pasted text, sent pages,
   confirmations and scanned PDFs, and its answers win over the pattern readers' (`journeys/claude_read.py`; each text
   is read once, kept in `ClaudeRead`; `TRIPS_CLAUDE_MODEL` picks the model). Planned / Booked status (ideas were merged into
   Planned on 15 Nov 2026); Add confirmation on planned ones, and View confirmation on booked ones whose confirmation was imported by link or uploaded file (kept as a trip document); a planned one with a link has its details read from it when saved (`journeys/link_details.py`; Refresh details tries again); each

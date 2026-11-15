@@ -6,10 +6,14 @@ A planned plan that has a link is also read when it's first saved (or its link c
 when "Refresh details" is pressed (refresh): what the page gives fills only the plan's empty
 details, so nothing typed by hand is overwritten. What it still lacks is flagged on the plan
 (booking_costs.missing_details) until it's added.
+
+With an Anthropic API key set, Claude reads the page too (claude_read), whether the server fetched
+it from the link, the browser sent it (Send to Trips) or its text was pasted in.
 """
 
 import hashlib
 import re
+import time
 import urllib.parse
 
 from django.utils import timezone
@@ -66,15 +70,36 @@ def capture_page(capture):
     return url, "\n".join(parts), "\n".join(part for part in (title, description[:1000], words) if part)
 
 
-def _with_claude(kind, read, words, hint="", extra=None):
+def page_words(page):
+    """A page the server fetched, as words for Claude: its title and description (html_to_text leaves
+    out the page's head, where they are), then its text."""
+    from html import unescape
+
+    head = page[:300_000]
+    title = stay_import._first(r'<meta[^>]+property="og:title"[^>]+content="([^"]+)"', head) or stay_import._first(
+        r"<title[^>]*>([^<]+)</title>", head)
+    description = stay_import._first(r'<meta[^>]+(?:name="description"|property="og:description")[^>]+content="([^"]+)"', head)
+    parts = [" ".join(unescape(title).split())[:300], " ".join(unescape(description).split())[:1000],
+             booking_import.html_to_text(page[:2_000_000])]
+    return "\n".join(part for part in parts if part)
+
+
+def _with_claude(kind, read, words, hint="", extra=None, started=None):
     """A pattern reader's fields (`read()`), with `extra` (a cost read from the text) and what Claude
-    reads in `words` laid over them. Raises the reader's PageError only when nothing was found at all."""
+    reads in `words` laid over them. Raises the reader's PageError only when nothing was found at all.
+
+    `started` (time.monotonic()) is when the server began fetching the page from its link, in this
+    request: Claude then gets only what's left of its TIMEOUT, and a robot check (BlockedError) is
+    passed straight on, as there's nothing on it for Claude to read."""
     try:
         found, error = read(), None
     except PageError as exc:
+        if started is not None and isinstance(exc, stay_import.BlockedError):
+            raise
         found, error = {}, exc
     found.update(extra or {})
-    ai = claude_read.for_page(kind, claude_read.read(kind, words, hint=hint))
+    timeout = claude_read.TIMEOUT if started is None else claude_read.TIMEOUT - (time.monotonic() - started)
+    ai = claude_read.for_page(kind, claude_read.read(kind, words, hint=hint, timeout=timeout))
     if ai:
         found.update(ai)
         found["read_by"] = "claude"
@@ -141,15 +166,11 @@ def read_stay(url="", text="", capture=None):
     elif url and (booked := site_links.read(url)):
         found = stay_from_site_link(booked)
     elif url:
+        started = time.monotonic()
         page = stay_import.fetch_page(url)
-        cost = paid(booking_import.html_to_text(page[:2_000_000]))
-        try:
-            found = stay_import.extract(page, url)
-        except PageError:
-            if not cost:
-                raise
-            found = {}  # a booking page or confirmation with no hotel details: still its cost
-        found.update(cost)
+        words = page_words(page)
+        # A booking page or confirmation with no hotel details still gives its cost (extra).
+        found = _with_claude("stay", lambda: stay_import.extract(page, url), words, hint=url, extra=paid(words), started=started)
     else:
         page = text[:500_000]
         found = _with_claude("stay", lambda: stay_import.extract(page), page, extra=paid(page))
@@ -184,7 +205,9 @@ def read_activity(trip, url="", text="", day=None, title="", capture=None):
         found["url"] = url
         found["site"] = (urllib.parse.urlsplit(url).hostname or "").removeprefix("www.")
     elif url:
-        found = activity_import.read_link(url, name_hint=title)
+        started = time.monotonic()
+        found = activity_import.read_link(url, name_hint=title, read_page=lambda page: _with_claude(
+            "activity", lambda: activity_import.extract(page, url), page_words(page), hint=url, started=started))
     else:
         page = text[:500_000]
         found = _with_claude("activity", lambda: activity_import.extract(page, name_hint=title), page, extra=paid(page))
@@ -228,7 +251,9 @@ def read_leg(trip, url="", text="", capture=None):
         url, page, words = capture_page(capture)
         found = _with_claude("leg", lambda: leg_import.extract(page, url), words, hint=url)
     elif url:
-        found, words = leg_import.read_link(url), ""
+        started = time.monotonic()
+        found, words = leg_import.read_link(url, read_page=lambda page: _with_claude(
+            "leg", lambda: leg_import.extract(page, url), page_words(page), hint=url, started=started)), ""
     else:
         found = _with_claude("leg", lambda: leg_import.extract(words), words)
     money = booking_costs.parse_money(found.get("price"))

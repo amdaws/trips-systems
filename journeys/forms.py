@@ -141,7 +141,7 @@ class ItemForm(BookingCostMixin, forms.ModelForm):
     class Meta:
         model = Item
         fields = ["day", "title", "block", "start_time", "end_time", "place", "address", "opening_hours", "phone", "email", "description",
-                  "links", "status", "private_notes", "is_public"]
+                  "links", "people", "status", "private_notes", "is_public"]
         widgets = {
             "start_time": TIME, "end_time": TIME,
             "description": forms.Textarea(attrs={"rows": 3}),
@@ -150,10 +150,44 @@ class ItemForm(BookingCostMixin, forms.ModelForm):
         }
         help_texts = {"block": "Used when there's no start time; a start time sets the block automatically."}
 
+    # The cost is per person: People beside it (starting at the trip's travellers) and the Total it
+    # comes to, which is what goes on the budget (booking_costs: "activities").
+    COST_FIELDS = ("cost", "cost_currency", "people", "cost_total")
+
     def __init__(self, *args, trip, **kwargs):
+        from .booking_costs import cost_shown, default_people, per_person
+
         super().__init__(*args, **kwargs)
         self.fields["day"].queryset = trip.days.select_related("trip")
+        self.default_people = default_people(trip)
+        people = self.instance.people or self.default_people
+        self.fields["people"].label = "People"
+        self.fields["people"].widget.attrs.update({"min": 1, "max": 99, "data-cost-people": ""})
+        self.fields["people"].help_text = (f"How many people the cost is for. Starts at the trip's {self.default_people} "
+                                           f"traveller{'s' if self.default_people != 1 else ''} (Settings).")
+        self.initial["people"] = people
+        self.fields["cost_total"] = forms.CharField(
+            label="Total", required=False, disabled=True, widget=forms.TextInput(attrs={"data-cost-total": "", "tabindex": "-1"}),
+            help_text="Cost per person × people: what goes on the budget.")
         self.add_booking_cost(after="links")
+        self.fields["cost"].label = "Cost per person"
+        self.fields["cost"].widget.attrs["data-cost-each"] = ""
+        self.fields["cost"].help_text = ("While planned, what you expect it to cost each person (a booking link's price is per person); "
+                                         "once booked, what each person's place cost. The total counts towards the budget.")
+        shown = cost_shown(self.instance) if self.instance.pk else None
+        if shown:
+            self.initial["cost"] = per_person(shown[0], people)
+            self.initial["cost_total"] = f"{shown[1]} {shown[0]:,.2f}"
+
+    def clean_people(self):
+        return self.cleaned_data.get("people") or self.default_people
+
+    def cost_changed(self):
+        """The total (cost per person × people) when the cost or people changed, else False."""
+        change = super().cost_changed()
+        if change is False or change[0] is None:
+            return change
+        return change[0] * self.cleaned_data["people"], change[1]
 
 
 class LegForm(BookingCostMixin, forms.ModelForm):
@@ -216,8 +250,8 @@ class StayForm(BookingCostMixin, forms.ModelForm):
         cleaned = super().clean()
         if cleaned.get("check_in_date") and cleaned.get("check_out_date") and cleaned["check_out_date"] <= cleaned["check_in_date"]:
             self.add_error("check_out_date", "Check-out must be after check-in.")
-        if Stay(label=cleaned.get("label") or "", name=cleaned.get("name") or "").label_names_hotel():
-            self.add_error("label", "Visitors see the label, so use the city or a short name like 'Hong Kong 1', not the property's name.")
+        if Stay(label=cleaned.get("label") or "", name=cleaned.get("name") or "", city=cleaned.get("city")).label_names_hotel():
+            self.add_error("label", "Visitors see the label, so use the city or a short name like 'Hong Kong 1', not the property's name or part of it.")
         return cleaned
 
 

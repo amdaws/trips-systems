@@ -154,6 +154,37 @@ def read(url):
     return found
 
 
+TRIPCOM_PAGES = {"travel-guide", "attraction", "things-to-do", "detail", "tourist-attractions", "list", "en-au", "en-us", "en-gb"}
+
+
+def is_tripcom(url):
+    host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    return bool(re.search(r"(^|\.)(trip|ctrip)\.com$", host))
+
+
+def tripcom_activity(url):
+    """What a Trip.com sight or tour link says about itself, for when Trip.com turns the server away:
+    "/travel-guide/attraction/beijing/the-palace-museum-75595/" -> {"name": "The Palace Museum",
+    "city": "Beijing"}. A tour link with only a number ("/things-to-do/detail/36394123/") gives no
+    name. {} for anything that isn't a Trip.com link."""
+    if not is_tripcom(url):
+        return {}
+    found = {"site": "trip.com", "url": url, "kind": "activity"}
+    segments = [s for s in urllib.parse.unquote(urllib.parse.urlsplit(url).path).lower().split("/") if s]
+    for index in range(len(segments) - 1, -1, -1):
+        page = re.fullmatch(r"([a-z][a-z0-9'-]*[a-z])-\d+", segments[index])
+        if page and page[1] not in TRIPCOM_PAGES:
+            found["name"] = _words(page[1])
+            city = segments[index - 1] if index else ""
+            city = re.sub(r"-?\d+$", "", city)
+            if city and city not in TRIPCOM_PAGES and re.fullmatch(r"[a-z][a-z-]*", city):
+                found["city"] = _words(city)
+            break
+    if found.get("name") and TRANSPORT_WORDS.search(found["name"]):
+        found["kind"] = "transport"
+    return found
+
+
 GENERIC = re.compile(r"(?i)\b(private|small[- ]group|group|guided|day|half[- ]day|full[- ]day|tours?|trips?|tickets?|"
                      r"admission|entry|entrance|passes?|experience|skip[- ]the[- ]line|e-?ticket|with|including|and)\b.*$")
 

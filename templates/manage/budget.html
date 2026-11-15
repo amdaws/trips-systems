@@ -9,7 +9,7 @@
 </div>
 
 <div class="grid kpis">
-  <div class="card kpi stack"><span class="small muted">Estimated (AUD)</span><strong>${{ totals.estimate|floatformat:"2g" }}</strong><span class="small muted">Paid so far{% if totals.planned %}, plus ${{ totals.planned|floatformat:"2g" }} estimated for planned items{% endif %}{% if totals.per_person_estimate is not None %} · ${{ totals.per_person_estimate|floatformat:"2g" }} per person{% endif %}</span></div>
+  <div class="card kpi stack"><span class="small muted">Estimated (AUD)</span><strong>${{ totals.estimate|floatformat:"2g" }}</strong><span class="small muted">Paid so far{% if totals.planned %}, plus ${{ totals.planned|floatformat:"2g" }} estimated for planned items (and booked ones whose cost isn't recorded){% endif %}{% if totals.per_person_estimate is not None %} · ${{ totals.per_person_estimate|floatformat:"2g" }} per person{% endif %}</span></div>
   <div class="card kpi stack"><span class="small muted">Spent (AUD)</span><strong>${{ totals.actual|floatformat:"2g" }}</strong>{% if totals.per_person is not None %}<span class="small muted">${{ totals.per_person|floatformat:"2g" }} per person</span>{% endif %}</div>
   <div class="card kpi stack"><span class="small muted">Paid by</span>{% for traveller, amount in totals.paid_by %}<span><strong style="display:inline;font-size:var(--step-0)">{{ traveller.initials }}</strong> ${{ amount|floatformat:"2g" }}</span>{% empty %}<span class="muted small">Add travellers in Settings</span>{% endfor %}</div>
 </div>
@@ -50,7 +50,7 @@
         <td>{{ item.description }}{% if item.stay %}<br><span class="small muted">{{ item.stay }}</span>{% endif %}{% if item.leg %}<br><span class="small muted">{{ item.leg }}</span>{% endif %}{% if item.item %}<br><span class="small muted">{{ item.item }}</span>{% endif %}</td>
         <td>{% if item.plan %}{% include "manage/_status_badge.html" with plan=item.plan %}{% endif %}</td>
         <td class="num">{% if item.is_planned_estimate %}{% if item.estimate_currency != "AUD" %}{{ item.estimate|floatformat:"2g" }} {{ item.estimate_currency }}<br><span class="small muted">{% endif %}${{ item.estimate_aud|floatformat:"2g"|default:"?" }}{% if item.estimate_currency != "AUD" %}</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
-        <td class="num">{% if item.actual is not None %}{% if item.actual_currency != "AUD" %}{{ item.actual|floatformat:"2g" }} {{ item.actual_currency }}<br><span class="small muted">{% endif %}${{ item.actual_aud|floatformat:"2g"|default:"?" }}{% if item.actual_currency != "AUD" %}</span>{% endif %}{% else %}—{% endif %}</td>
+        <td class="num">{% if item.actual is not None %}{% if item.actual_currency != "AUD" %}{{ item.actual|floatformat:"2g" }} {{ item.actual_currency }}<br><span class="small muted">{% endif %}${{ item.actual_aud|floatformat:"2g"|default:"?" }}{% if item.actual_currency != "AUD" %}</span>{% endif %}{% elif item.cost_unrecorded %}<span class="small" title="Booked, but what it cost isn't recorded: its estimate is counted until it is">not recorded</span>{% else %}—{% endif %}</td>
         <td>{{ item.paid_by.initials|default:"" }}</td>
         <td class="num"><a class="btn btn--small" href="{% url 'manage:budget_edit' trip.pk item.pk %}">Edit</a></td>
       </tr>

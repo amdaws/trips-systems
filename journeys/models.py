@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
@@ -66,6 +67,35 @@ def _added_from(field):
         "details_note": lambda: models.CharField(max_length=300, blank=True, editable=False,
                                                  help_text="Why the link couldn't be read, the last time it was tried."),
     }[field]()
+
+
+# Words in hotel names that say nothing about which hotel it is, or where (a label may share them).
+PLAIN_HOTEL_WORDS = {
+    "hotel", "hotels", "inn", "resort", "suite", "suites", "apartment", "apartments", "serviced", "hostel", "lodge", "motel",
+    "the", "and", "of", "at", "by", "in", "on", "for", "stay", "night", "nights", "city", "centre", "center", "central",
+    "downtown", "airport", "station", "railway", "north", "south", "east", "west", "old", "new", "town", "road", "street",
+    "international", "hong", "kong", "bay", "harbour", "harbor", "river", "lake", "beach", "park",
+}
+
+
+def label_gives_hotel_away(label, name, city="", city_local=""):
+    """Whether a stay's label names its property, wholly or in part ("Hilton" for "Hilton Shenzhen
+    Futian"): the label is shown to everyone, the property's name only to the owner. The city, a
+    number and plain words ("Shenzhen 2", "Shenzhen Airport") are fine. Pure: migration 0028 uses it."""
+    name, label = normalise(name or ""), normalise(label or "")
+    if not (name and label):
+        return False
+    if name in label:
+        return True
+    words = lambda text: set(re.findall(r"[a-z0-9']+", text))
+    telling = {word for word in words(name) - words(normalise(city)) - PLAIN_HOTEL_WORDS if len(word) >= 3 and not word.isdigit()}
+    if telling & words(label):
+        return True
+    for run in re.findall(r"[㐀-鿿]{2,}", label):  # Chinese: 希尔顿 in 深圳希尔顿酒店, but not the city 深圳
+        run = run.replace(city_local, "") if city_local else run
+        if len(run) >= 2 and run not in ("酒店", "宾馆", "饭店") and run in name:
+            return True
+    return False
 
 
 def normalise(text):
@@ -366,6 +396,11 @@ class Item(models.Model):
     email = models.EmailField(blank=True)
     private_notes = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=BookingStatus.choices, default=BookingStatus.PLANNED)
+    people = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(99)],
+        help_text="How many people its cost is for: the cost is per person, and its budget line is the cost times this. "
+                  "Empty: the number of travellers in the trip's Settings.",
+    )
     added_from = _added_from("added_from")
     added_from_url = _added_from("added_from_url")
     confirmation_url = _added_from("confirmation_url")
@@ -610,8 +645,8 @@ class Stay(models.Model):
 
     def label_names_hotel(self):
         """Whether the label gives the property away. Every viewer sees the label, so it must not."""
-        name, label = self.name.strip().casefold(), self.label.strip().casefold()
-        return bool(name and label and name in label)
+        city = self.city if self.city_id else None
+        return label_gives_hotel_away(self.label, self.name, city.name if city else "", city.name_local if city else "")
 
     def save(self, *args, **kwargs):
         # The stay form refuses such a label; this catches imports and anything else that saves directly.

@@ -35,7 +35,7 @@ from django.utils import timezone
 from . import geocode, transit
 from .geo import distance_km
 from .http import USER_AGENT, get_json, overpass
-from .models import Item, Leg, MetroNetwork, Place, Stay
+from .models import Item, Leg, MetroNetwork, Place, Stay, normalise
 from .routing import OSRM_URL
 
 log = logging.getLogger(__name__)
@@ -492,6 +492,8 @@ def _view(stay, network, legs, exact=True):
         if leg is None:
             continue
         place = leg.destination if kind == "arrival" else leg.origin
+        if not exact and at_the_hotel(place, stay):
+            continue  # a shuttle or bus to the hotel's door: its name would be the transfer's start or end
         hub = nearest(network, place.coords, _hub_km(place)) if network else None
         if hub:
             start, end = (hub[1], station) if kind == "arrival" else (station, hub[1])
@@ -507,6 +509,16 @@ def _view(stay, network, legs, exact=True):
         if estimate and estimate.get("place") == place.pk:
             view[f"{kind}_taxi"] = _taxi_view(leg, place, estimate, stay, exact)
     return view
+
+
+def at_the_hotel(place, stay):
+    """Whether a journey's end is a hotel: any place kept as one, the stay's own exact location, or a
+    place named after the stay's property. Visitors never see a hotel's name, so they get no metro or
+    taxi transfer that starts or ends there."""
+    if place.kind == Place.Kind.HOTEL or (stay.location_id and place.pk == stay.location_id):
+        return True
+    property_name = normalise(stay.name or "")
+    return len(property_name) > 3 and property_name in normalise(place.name)
 
 
 def _hub_km(place):

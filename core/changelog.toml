@@ -457,3 +457,14 @@ items = [
   { category = "new", area = "Planner", text = "A planned stay, transport or activity with a link has its details read from that page as soon as it's saved, filling only what's empty, and a Refresh details button tries again." },
   { category = "new", area = "Planner", text = "On the budget, tick several lines to set who paid for them all at once." },
 ]
+
+[[release]]
+at = 2026-11-15T13:45:00+10:00
+title = "Costs per person, Trip.com sights, and hotels kept private"
+items = [
+  { category = "new", area = "Activities", text = "An activity's cost is now per person, with how many people it's for beside it (starting at the trip's travellers) and the total it comes to, which is what the budget counts. Several activities can be set to a number of people at once." },
+  { category = "improved", area = "Activities", text = "Trip.com doesn't let the planner read its pages, so a Trip.com sight's name and city now come from its link, or the activity's title is used, and the place is found on the map. Pasted page text also fills in the address and opening hours." },
+  { category = "fixed", area = "Planner", text = "A booking added without a price, such as a confirmation that doesn't say what was paid, keeps counting its estimated cost in the budget until what it cost is added. Clearing a booked cost now clears it." },
+  { category = "security", area = "Stays", text = "A public shuttle or bus to a hotel's door no longer names the hotel in the directions to or from it." },
+  { category = "security", area = "Stays", text = "A stay's label can't include part of the hotel's name either. Older labels that did, and the recent-updates entries that showed them, now show the city." },
+]

@@ -118,12 +118,14 @@ def read_stay(url="", text=""):
     return {"fields": found, "city": city, "location": location, "missing": link_missing("stay", found)}
 
 
-def read_activity(trip, url="", text="", day=None):
-    """{"fields", "place", "missing"} for a sight or tour from its link (or pasted page text)."""
+def read_activity(trip, url="", text="", day=None, title=""):
+    """{"fields", "place", "missing", "note"} for a sight or tour from its link (or pasted page text).
+    `title` is the activity's name as typed: it stands in when the site won't show its page to the
+    server and the link doesn't name the place, and for pasted text, which seldom names it."""
     if url:
-        found = activity_import.read_link(url)
+        found = activity_import.read_link(url, name_hint=title)
     else:
-        found = activity_import.extract(text[:500_000])
+        found = activity_import.extract(text[:500_000], name_hint=title)
         found.update(paid(text[:500_000]))
 
     place = None
@@ -137,7 +139,7 @@ def read_activity(trip, url="", text="", day=None):
         near = (nights.night_names(trip).get(day.date) or {}).get("name", "") if day else ""
         if found.get("address"):
             queries = [found["address"]]
-        elif found.get("site") in ("booking.com", "klook.com", "tripadvisor", "viator.com"):
+        elif found.get("site") in ("booking.com", "klook.com", "tripadvisor", "viator.com") or found.get("blocked"):
             queries = site_links.search_texts(found, near)
         else:
             queries = [found["name"]]
@@ -153,7 +155,8 @@ def read_activity(trip, url="", text="", day=None):
                 break
         if results:
             place = geocode.save_result(results[0], kind=Place.Kind.ATTRACTION, name=(found.get("name") or results[0]["name"])[:200])
-    return {"fields": found, "place": place, "missing": link_missing("activity", found)}
+    note = activity_import.blocked_note(found, pinned=place is not None) if found.get("blocked") else ""
+    return {"fields": found, "place": place, "missing": link_missing("activity", found), "note": note}
 
 
 def read_leg(trip, url="", text=""):
@@ -191,7 +194,7 @@ def refresh(plan):
         if isinstance(plan, Stay):
             result = read_stay(url)
         elif isinstance(plan, Item):
-            result = read_activity(plan.day.trip, url, day=plan.day)
+            result = read_activity(plan.day.trip, url, day=plan.day, title=plan.title)
         else:
             result = read_leg(plan.trip, url)
     except PageError as exc:
@@ -237,11 +240,13 @@ def refresh(plan):
         _fill(plan, "operator", (f.get("operator") or "")[:100], filled, "operator")
         _fill(plan, "seat_class", (f.get("seat_class") or "")[:50], filled, "class")
 
-    plan.details_checked_at, plan.details_note = timezone.now(), ""
+    # A site that wouldn't show its page: say so (the edit page shows it beside Refresh details).
+    plan.details_checked_at, plan.details_note = timezone.now(), (result.get("note") or "")[:300]
     plan.save()
     if f.get("amount") and plan.status == BookingStatus.PLANNED:
         line = booking_costs.budget_line(plan)
         if not line or (line.estimate is None and line.actual is None):
-            booking_costs.set_estimate(plan, f["amount"], f.get("currency") or "AUD", site=f.get("site", ""))
+            amount, currency = booking_costs.total_from_price(plan, f["amount"]), f.get("currency") or "AUD"
+            booking_costs.set_estimate(plan, amount, currency, site=f.get("site", ""))
             filled.append("estimated cost")
     return filled, booking_costs.missing_details(plan), ""

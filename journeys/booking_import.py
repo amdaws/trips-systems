@@ -311,6 +311,10 @@ def apply_to_activity(item, found, fields):
     for line in _note_lines(found) if "booking_ref" in fields or not found.get("booking_ref") else []:
         if line not in item.private_notes:
             item.private_notes = (item.private_notes + "\n" + line).strip()
+    if "travellers" in fields and found.get("travellers"):  # "2 adults, 1 child": who the total paid was for
+        count = sum(int(n) for n in re.findall(r"\d+", found["travellers"]))
+        if 1 <= count <= 99:
+            item.people = count
     item.status = BookingStatus.BOOKED
     item.save()
     return item

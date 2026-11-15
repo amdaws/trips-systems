@@ -379,8 +379,10 @@
   // on the Budget page's estimate once saved), what it cost once it's Booked.
   function setCost(set, f) {
     if (!f.amount) return;
-    set("cost", f.amount);
+    set("cost", f.amount);  // an activity's is per person: its Total updates to match
     set("cost_currency", f.currency);
+    var cost = form.querySelector("[name=cost]");
+    if (cost) cost.dispatchEvent(new Event("input", { bubbles: true }));
   }
   var COST_LABELS = { cost: "cost", cost_currency: "currency", opening_hours: "opening hours" };
 
@@ -476,6 +478,9 @@
       var body = fromLink ? { url: box.querySelector("input[type=url]").value.trim() } : { text: box.querySelector("textarea").value };
       var day = form.querySelector("[name=day]");
       if (day) body.day = day.value;
+      // An activity's title as typed: stands in when the site (Trip.com) won't show the page, or for pasted text.
+      var title = kind === "activity" ? form.querySelector("[name=title]") : null;
+      if (title && title.value.trim()) body.title = title.value.trim();
       if (!(body.url || body.text || "").trim()) { status.textContent = fromLink ? "Paste a link first." : "Paste the page text first."; return; }
       status.textContent = fromLink ? "Reading the page…" : "Reading the text…";
       fetch(box.dataset.url, {
@@ -490,12 +495,35 @@
             if (fromLink) box.querySelector("details").open = true;
           } else {
             markFromLink(body.url || "pasted page text");
-            status.textContent = (kind === "stay" ? fillStay(result) : kind === "leg" ? fillLeg(result) : fillActivity(result)) + missingNote(result);
+            status.textContent = (kind === "stay" ? fillStay(result) : kind === "leg" ? fillLeg(result) : fillActivity(result)) + missingNote(result) +
+              (result.note ? " " + result.note : "");
+            if (result.note && fromLink) box.querySelector("details").open = true;  // the page text gives the rest
           }
         })
         .catch(function () { status.textContent = "Couldn't read that. Try pasting the page text instead."; });
     });
   });
+})();
+
+/* An activity's form: Cost per person × People, shown as its Total as either is typed. */
+(function () {
+  "use strict";
+
+  var each = document.querySelector("[data-cost-each]");
+  var people = document.querySelector("[data-cost-people]");
+  var total = document.querySelector("[data-cost-total]");
+  if (!each || !people || !total) return;
+  var currency = each.form.querySelector("[name=cost_currency]");
+
+  function update() {
+    var amount = parseFloat(each.value), count = parseInt(people.value, 10) || parseInt(people.defaultValue, 10) || 1;
+    total.value = isNaN(amount) ? "" : (currency ? currency.value + " " : "") +
+      (amount * count).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  [each, people, currency].forEach(function (input) {
+    if (input) { input.addEventListener("input", update); input.addEventListener("change", update); }
+  });
+  update();
 })();
 
 /* Activities, stays and budget lines: tick several to change them together (public or private, move to

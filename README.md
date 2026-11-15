@@ -12,7 +12,10 @@ Django 6.1 journey planner for Aaron Daws Trips.
   activities, transport with quick entry and automatic route tracing, stays,
   budget in any currency converted to AUD: spent is what's been paid, and the estimate is that plus
   each planned stay, transport and activity's cost (one Cost per plan: an estimate while Planned, what it
-  cost once Booked; see `journeys/booking_costs.py`). Planned / Booked status (ideas were merged into
+  cost once Booked; see `journeys/booking_costs.py`. An activity's Cost is per person, times its People,
+  which starts at the trip's travellers; its budget line holds the total). Trip.com activity links, whose
+  pages Trip.com won't show the server, are read from the link's address (name and city) or the title as
+  typed, then pinned with OpenStreetMap (`site_links.tripcom_activity`). Planned / Booked status (ideas were merged into
   Planned on 15 Nov 2026); Add confirmation on planned ones, and View confirmation on booked ones whose confirmation was imported by link or uploaded file (kept as a trip document); a planned one with a link has its details read from it when saved (`journeys/link_details.py`; Refresh details tries again); each
   records how it was added (booking link, import or by hand), and one filled in from a booking link
   flags details the page didn't give (`booking_costs.missing_details`). Also checklists with automatic train

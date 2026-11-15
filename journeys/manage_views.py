@@ -94,6 +94,7 @@ def _budget_totals(trip):
     for line in items:
         line.plan = booking_costs.plan_of(line)
         line.estimate_value, line.is_planned_estimate = booking_costs.estimate_for(line)
+        line.cost_unrecorded = booking_costs.cost_unrecorded(line)  # booked, but what it cost isn't on it yet
         plan = line.plan
         line.when = (plan.check_in_date if isinstance(plan, Stay) else plan.depart_date if isinstance(plan, Leg)
                      else plan.day.date if isinstance(plan, Item) else None)
@@ -152,15 +153,15 @@ def _record_booking_cost(request, form, plan, created=False):
         plan.save(update_fields=["added_from", "added_from_url"])
     # A planned one with a link: read the page now (when it's new or its link changed) to fill its gaps.
     if plan.status == BookingStatus.PLANNED and booking_costs.plan_link(plan) and (created or {"url", "links"} & set(form.changed_data)):
-        _report_refresh(request, *link_details.refresh(plan))
+        _report_refresh(request, *link_details.refresh(plan), note=plan.details_note)
 
 
-def _report_refresh(request, filled, missing, error):
+def _report_refresh(request, filled, missing, error, note=""):
     if error:
         messages.warning(request, f"Couldn't read its link: {error} Press Refresh details on it to try again.")
         return
     found = f"Filled in from its link: {', '.join(filled)}." if filled else "Its link had nothing new to fill in."
-    messages.info(request, found + (f" Still missing: {', '.join(missing)}." if missing else ""))
+    messages.info(request, found + (f" Still missing: {', '.join(missing)}." if missing else "") + (f" {note}" if note else ""))
 
 
 @staff_required
@@ -172,7 +173,7 @@ def refresh_details(request, pk, kind, plan_pk):
         raise Http404
     model, trip_field, page = CONFIRM_KINDS[kind]
     plan = get_object_or_404(model, pk=plan_pk, **{trip_field: trip})
-    _report_refresh(request, *link_details.refresh(plan))
+    _report_refresh(request, *link_details.refresh(plan), note=plan.details_note)
     edit = {"stay": "manage:stay_edit", "leg": "manage:leg_edit", "item": "manage:item_edit"}[kind]
     return redirect(reverse(edit, args=[trip.pk, plan.pk]))
 
@@ -349,16 +350,19 @@ def activities(request, pk):
     items = metro.for_activities(trip, Item.objects.filter(day__trip=trip).select_related("day", "place").prefetch_related("budget_items")
                                  .order_by("day__date", "order", "start_time", "id"))
     night_names = nights.night_names(trip)  # each night's city, from the stays
+    travellers = trip.travellers.count()
     days = []
     for item in items:
         item.missing = booking_costs.missing_details(item)
+        item.cost_view = booking_costs.activity_cost(item, travellers)  # cost per person × people = total
         if not days or days[-1]["day"] != item.day:
             days.append({"day": item.day, "night": night_names.get(item.day.date), "items": []})
         days[-1]["items"].append(item)
     trip_days = list(trip.days.all())
     for day in trip_days:
         day.night = night_names.get(day.date)
-    return render(request, "manage/activities.html", _context(trip, "activities", days=days, trip_days=trip_days))
+    return render(request, "manage/activities.html", _context(trip, "activities", days=days, trip_days=trip_days,
+                                                              default_people=booking_costs.default_people(trip, travellers)))
 
 
 @staff_required
@@ -387,6 +391,16 @@ def activities_bulk(request, pk):
             return redirect(back)
         changes.record_updates(items, day=day, directions={"pending": True})  # directions set out from that night's hotel
         messages.success(request, f"Moved {noun} to {day.date:%a %-d %b}.")
+    elif action == "people":
+        people = request.POST.get("people", "")
+        if not people.isdigit() or not 1 <= int(people) <= 99:
+            messages.info(request, "Enter how many people (1 to 99).")
+            return redirect(back)
+        travellers = trip.travellers.count()
+        for item in items:
+            booking_costs.set_people(item, int(people), travellers)
+        messages.success(request, f"Set {noun} to {people} {'person' if people == '1' else 'people'}: each cost per person is kept, "
+                                  "and the totals on the budget now match.")
     elif action == "delete":
         if request.POST.get("confirm") != "yes":
             rows = [{"pk": item.pk, "title": item.title, "detail": f"{item.day.date:%a %-d %b} · Day {item.day.number}"} for item in items]
@@ -506,12 +520,14 @@ def api_activity_extract(request, pk):
     if not (url or text.strip()):
         return JsonResponse({"error": "Paste a link or the page text first."}, status=400)
     day = trip.days.filter(pk=data.get("day")).first() if str(data.get("day", "")).isdigit() else None
+    title = str(data.get("title", ""))[:200]  # as typed: stands in when the site won't show the page
     try:
-        result = link_details.read_activity(trip, url, text, day)
+        result = link_details.read_activity(trip, url, text, day, title=title)
     except stay_import.PageError as exc:
         return JsonResponse({"error": str(exc)}, status=422)
     place = result["place"]
-    return JsonResponse({"fields": result["fields"], "place": place_json(place) if place else None, "missing": result["missing"]})
+    return JsonResponse({"fields": result["fields"], "place": place_json(place) if place else None, "missing": result["missing"],
+                         "note": result.get("note", "")})
 
 
 @staff_required

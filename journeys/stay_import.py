@@ -27,6 +27,11 @@ class PageError(Exception):
     """A friendly reason the page couldn't be read."""
 
 
+class BlockedError(PageError):
+    """The site turned the server away (an error such as 403 or 432, or a robot check) rather than the
+    page having nothing on it. Readers can fall back on what the link's own address says."""
+
+
 # ---------- fetching (only public web addresses) ----------
 
 
@@ -100,7 +105,7 @@ def fetch_page(url):
                 url = urllib.parse.urljoin(url, exc.headers["Location"])
                 continue
             if exc.code in (403, 429, 432, 503):
-                raise PageError("That site blocks automatic reading. Paste the page text below instead.")
+                raise BlockedError("That site blocks automatic reading. Paste the page text below instead.")
             raise PageError(f"The site answered with an error ({exc.code}).")
         except (urllib.error.URLError, TimeoutError) as exc:
             raise PageError(f"The site didn't respond ({getattr(exc, 'reason', exc)}).")
@@ -260,6 +265,6 @@ def extract(page, url=""):
     found = {k: (str(v)[:300] if not isinstance(v, (int, float)) else v) for k, v in found.items() if v}
     if not any(k in found for k in ("address", "phone", "check_in_time", "lat")):
         if re.search(r"challenge|captcha|verify you are human", page[:200000], re.I):
-            raise PageError("The site showed a robot check instead of the page. Paste the page text below instead.")
+            raise BlockedError("The site showed a robot check instead of the page. Paste the page text below instead.")
         raise PageError("Couldn't find hotel details on that page. Paste the page text below instead.")
     return found

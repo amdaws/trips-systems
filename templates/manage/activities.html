@@ -10,7 +10,7 @@
     <a class="btn btn--primary" href="{% url 'manage:item_create' trip.pk %}?next={{ request.path|urlencode }}">Add a sight</a>
   </div>
 </div>
-<p class="small muted">Sights and plans for each day. Add one from a map or web link, and how to get there from that night's hotel (metro from MetroMan, or a taxi time) is worked out in the background within a few minutes. Public activities appear on the trip's Activities page for anyone; private ones only for you and the secret link. Tick several to change or delete them together (shift-click ticks a run).</p>
+<p class="small muted">Sights and plans for each day. Add one from a map or web link, and how to get there from that night's hotel (metro from MetroMan, or a taxi time) is worked out in the background within a few minutes. Public activities appear on the trip's Activities page for anyone; private ones only for you and the secret link. Tick several to change or delete them together (shift-click ticks a run). Costs are per person: each shows its total, then the cost per person × people (People starts at the trip's travellers in Settings; Set people changes it for the ticked ones).</p>
 
 {% if days %}
 <form id="bulk-form" method="post" action="{% url 'manage:activities_bulk' trip.pk %}" class="bulk-bar" data-bulk-bar>
@@ -26,6 +26,11 @@
         {% for day in trip_days %}<option value="{{ day.pk }}">{{ day.date|date:"D j M" }} · Day {{ day.number }}{% if day.night %} · {{ day.night.name }}{% endif %}</option>{% endfor %}
       </select>
       <button type="submit" class="btn btn--small" name="action" value="move" data-bulk-action>Move</button>
+    </span>
+    <span class="bulk-bar__move">
+      <label class="visually-hidden" for="bulk-people">People</label>
+      <input id="bulk-people" name="people" type="number" min="1" max="99" class="input input--small" style="width: 4.5rem" value="{{ default_people }}" data-bulk-action>
+      <button type="submit" class="btn btn--small" name="action" value="people" data-bulk-action title="Each cost per person stays the same; the totals change to match">Set people</button>
     </span>
     <button type="submit" class="btn btn--small btn--danger" name="action" value="delete" data-bulk-action>Delete</button>
     <button type="button" class="btn btn--small btn--subtle" data-bulk-clear data-bulk-action>Clear</button>

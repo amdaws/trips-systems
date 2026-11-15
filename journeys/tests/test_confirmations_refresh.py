@@ -139,7 +139,9 @@ class ReadOnSaveTests(PlannerCase):
                 "links": "Trip.com | https://au.trip.com/travel-guide/attraction/x/\nhttps://example.com/other"})
         self.assertEqual(read.call_args.args[1], "https://au.trip.com/travel-guide/attraction/x/")
         item = Item.objects.get(title="Window of the World")
-        self.assertEqual((item.opening_hours, item.budget_items.get().estimate), ("Daily 09:00–21:30", Decimal("220")))
+        # The page's price is per person: the estimate is for the trip's two travellers.
+        self.assertEqual((item.opening_hours, item.budget_items.get().estimate), ("Daily 09:00–21:30", Decimal("440")))
+        self.assertEqual(read.call_args.kwargs["title"], "Window of the World")
 
 
 class RefreshDetailsTests(PlannerCase):

@@ -19,7 +19,8 @@ import urllib.parse
 import urllib.request
 
 from . import china_coords, page_details, site_links
-from .stay_import import NO_GOOGLE, PageError, _address, _enclosing_object, _first, _unescape_layers, datum, fetch_page, is_google
+from .stay_import import (NO_GOOGLE, BlockedError, PageError, _address, _enclosing_object, _first, _unescape_layers, datum,
+                          fetch_page, is_google)
 
 PLACE_TYPES = (
     "TouristAttraction", "LandmarksOrHistoricalBuildings", "Museum", "Park", "Zoo", "Aquarium", "AmusementPark",
@@ -31,8 +32,23 @@ PLACE_TYPES = (
 _NUMBER = r"(-?\d{1,3}\.\d+)"
 
 
-def read_link(url):
-    """{'name', 'address', 'description', 'lat', 'lon', 'url', 'site'} (whatever was found) for a link."""
+def blocked_note(found, pinned):
+    """What to tell the planner about a link whose page the site wouldn't show (see read_link)."""
+    site = "Trip.com" if site_links.is_tripcom(found.get("url", "")) else found.get("site") or "That site"
+    if found.get("blocked") == "title":
+        got = ", so the map pin was found from the title you typed" if pinned else ""
+    else:
+        got = (", so the name and city came from the link" if found.get("city") else ", so the name came from the link") + (
+            ", and the map pin from OpenStreetMap" if pinned else "")
+    return f"{site} doesn't let the server read its pages{got}. For its price, opening hours and contact details, paste the page's text in the box below."
+
+
+def read_link(url, name_hint=""):
+    """{'name', 'address', 'description', 'lat', 'lon', 'url', 'site'} (whatever was found) for a link.
+
+    When the site turns the server away (Trip.com usually does), what the link's address says is
+    used instead: a Trip.com sight's name and city, or else `name_hint` (the activity's title as typed),
+    so the place can still be found on the map. Those results carry "blocked": True."""
     url = url.strip()
     if is_google(url):
         raise PageError(NO_GOOGLE)
@@ -42,9 +58,31 @@ def read_link(url):
             "site": booked["site"], "search": site_links.search_text(booked)}
     found = from_map_link(url)
     if not found:
-        found = extract(fetch_page(url), url)
+        try:
+            found = extract(fetch_page(url), url)
+        except BlockedError as exc:
+            found = from_blocked_link(url, name_hint, exc)
     found.setdefault("url", url)
     found["site"] = (urllib.parse.urlsplit(url).hostname or "").removeprefix("www.")
+    return found
+
+
+def from_blocked_link(url, name_hint, exc):
+    """What's known about a page the site wouldn't show: the name (and city) in its address, else the
+    title typed for it. Raises a PageError that says what to do when there's neither."""
+    found = site_links.tripcom_activity(url)
+    found.pop("kind", None)
+    found["blocked"] = "address"
+    name_hint = " ".join(str(name_hint or "").split())[:200]
+    if not found.get("name") and name_hint:
+        found.update(name=name_hint, blocked="title")
+    if not found.get("name"):
+        if site_links.is_tripcom(url):
+            raise BlockedError(
+                "Trip.com doesn't let the server read its pages, and this link doesn't say what the activity is. "
+                "Type its name in Title and press Fill in again to find it on the map, or paste the page's text in the box below.")
+        raise exc
+    found["url"] = url
     return found
 
 
@@ -104,8 +142,9 @@ def _place_objects(text):
                 continue
 
 
-def extract(page, url=""):
-    """A sight's details from a page's HTML. Keys are only present when found."""
+def extract(page, url="", name_hint=""):
+    """A sight's details from a page's HTML, or from its text pasted in (where `name_hint`, the title
+    typed for it, stands in for the name the text doesn't carry). Keys are only present when found."""
     text = _unescape_layers(page)
     found = {}
 
@@ -154,6 +193,9 @@ def extract(page, url=""):
     phone, email = page_details.contact(objects, plain)
     add("phone", phone)
     add("email", email)
+    # Pasted page text (Trip.com's included) has its address under an "Address" heading, not in page data.
+    add("address", page_details.address_line(plain))
+    add("name", " ".join(str(name_hint or "").split())[:200])
 
     if "lat" in found:
         try:
@@ -163,7 +205,8 @@ def extract(page, url=""):
     found = {k: (v[:500] if isinstance(v, str) else v) for k, v in found.items() if v not in ("", None)}
     if not any(k in found for k in ("lat", "address")):
         if len(page) < 40000 and re.search(r"challenge|captcha|verify you are human", page, re.I):
-            raise PageError("The site showed a robot check instead of the page. Try an OpenStreetMap or Wikipedia link instead.")
+            raise BlockedError("The site showed a robot check instead of the page. Try an OpenStreetMap or Wikipedia link instead.")
         if not found.get("name"):
-            raise PageError("Couldn't find a place on that page. Try an OpenStreetMap or Wikipedia link instead.")
+            raise PageError("Couldn't find a place on that page. Try an OpenStreetMap or Wikipedia link instead."
+                            if url else "Couldn't find the place in that text. Type the activity's name in Title, then press Fill in from text again.")
     return found

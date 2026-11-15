@@ -115,8 +115,9 @@ class CostTests(PlannerCase):
             "day": self.day.pk, "title": "Window of the World", "block": "afternoon", "cost": "45",
         })
         item = Item.objects.get(title="Window of the World")
-        self.assertEqual((item.status, item.budget_items.get().estimate), ("planned", Decimal("45")))
-        self.assertIn("est. AUD 45", self.page("activities"))
+        # An activity's cost is per person, for the trip's two travellers unless People says otherwise.
+        self.assertEqual((item.status, item.people, item.budget_items.get().estimate), ("planned", 2, Decimal("90")))
+        self.assertIn("est. AUD 90.00", self.page("activities"))
 
     def test_one_cost_field(self):
         form = self.page("stay_create")
@@ -138,6 +139,9 @@ class BudgetPageTests(PlannerCase):
         self.assertEqual(totals["planned"], Decimal("200"))
         stay.status = "booked"
         stay.save()
+        # Booked, but what it cost isn't recorded yet: its estimate still counts until it is.
+        self.assertEqual(self.client.get(reverse("manage:budget", args=[self.trip.pk])).context["totals"]["planned"], Decimal("200"))
+        booking_costs.record(stay, Decimal("200"), "AUD")
         self.assertEqual(self.client.get(reverse("manage:budget", args=[self.trip.pk])).context["totals"]["planned"], Decimal("0"))
 
     def test_lines_in_date_order(self):
@@ -325,3 +329,33 @@ class ParseMoneyTests(TestCase):
         for text, expected in cases.items():
             with self.subTest(text=text):
                 self.assertEqual(booking_costs.parse_money(text), expected)
+
+
+class BookedWithoutCostTests(PlannerCase):
+    """A booking that didn't say what it cost (a confirmation with no Total paid line): its estimate
+    stays in the budget's estimate, marked as not recorded, until the cost is added."""
+
+    def test_its_estimate_still_counts(self):
+        stay = self.planned_stay()
+        booking_costs.set_estimate(stay, Decimal("1000"), "AUD")
+        Stay.objects.filter(pk=stay.pk).update(status="booked")  # as a confirmation without a price leaves it
+        response = self.client.get(reverse("manage:budget", args=[self.trip.pk]))
+        totals = response.context["totals"]
+        self.assertEqual((totals["estimate"], totals["actual"]), (Decimal("1900"), Decimal("900")))  # the sample flights: 900 paid
+        self.assertContains(response, "not recorded")
+        stay.refresh_from_db()
+        self.assertEqual(booking_costs.cost_shown(stay), (Decimal("1000"), "AUD"))  # the form shows what's counted
+
+    def test_once_recorded_it_counts_what_it_cost(self):
+        stay = self.planned_stay()
+        booking_costs.set_estimate(stay, Decimal("1000"), "AUD")
+        booking_costs.record(stay, Decimal("880"), "AUD")
+        totals = self.client.get(reverse("manage:budget", args=[self.trip.pk])).context["totals"]
+        self.assertEqual((totals["estimate"], totals["actual"]), (Decimal("1780"), Decimal("1780")))
+
+    def test_clearing_a_booked_cost_clears_it(self):
+        stay = self.add_stay(cost="300")
+        self.client.post(reverse("manage:stay_edit", args=[self.trip.pk, stay.pk]), self.stay_data(status="booked", cost=""))
+        stay.refresh_from_db()
+        self.assertEqual(stay.status, "booked")
+        self.assertFalse(BudgetItem.objects.filter(stay=stay).exists())

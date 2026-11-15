@@ -62,7 +62,19 @@ def opening_hours(objects, plain):
                     parts.append(f"{', '.join(_days(entry.get('dayOfWeek'))) or 'Daily'} {str(entry['opens'])[:5]}–{str(entry['closes'])[:5]}")
             if parts:
                 return " · ".join(dict.fromkeys(parts))[:300]
-    return _first(r"(?:opening hours|opening times|open(?:ing)? time|hours of operation|business hours)\s*[:：]\s*([^\n]{4,120})", plain)[:300]
+    hours = _first(r"(?:opening hours|opening times|open(?:ing)? time|hours of operation|business hours)\s*[:：]\s*([^\n]{4,120})", plain)
+    if not hours:
+        # Pasted page text puts them on the line after the heading ("Opening Hours\nMon-Sun 08:30-17:00").
+        hours = _first(r"(?im)^\s*(?:opening hours|opening times|open(?:ing)? time|open hours|hours)\s*[:：]?[ \t]*\n\s*([^\n]{4,120})$", plain)
+        hours = hours if re.search(r"\d{1,2}[:.]\d{2}|\b24 hours\b", hours, re.I) else ""
+    return hours[:300]
+
+
+def address_line(plain):
+    """The address under an "Address" heading in a page's text ("Address: 4 Jingshan Front St" or the
+    line after "Address"), or ""."""
+    line = _first(r"(?im)^\s*(?:address|location address)\s*[:：]?[ \t]*\n?\s*([^\n]{6,200})$", plain)
+    return "" if re.match(r"(?i)(copy|map|view|show|get directions)\b", line) else line[:300]
 
 
 def contact(objects, plain):

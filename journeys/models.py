@@ -856,6 +856,19 @@ class WeatherCache(models.Model):
         ]
 
 
+class ClaudeRead(models.Model):
+    """What Claude read from one text (a booking page, pasted text or a confirmation), kept so the same
+    text is never sent or paid for twice (the review and apply steps both read a confirmation)."""
+
+    key = models.CharField(max_length=64, unique=True, help_text="sha256 of the kind, model and text.")
+    kind = models.CharField(max_length=20)
+    fields = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.kind} {self.key[:8]}"
+
+
 class TripChange(models.Model):
     """A transport leg, stay or activity added, changed or removed, for the trip's "Recently updated" list.
     `data` is what it looked like afterwards (before, for a removal); see changes.py."""

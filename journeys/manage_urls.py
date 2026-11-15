@@ -54,6 +54,7 @@ urlpatterns = [
     path("trips/<int:pk>/documents/<int:doc_pk>/", v.document_download, name="document_download"),
     path("trips/<int:pk>/documents/<int:doc_pk>/delete/", v.document_delete, name="document_delete"),
     path("imports/", v.imports, name="imports"),
+    path("capture/", v.capture, name="capture"),
     path("imports/<int:import_pk>/", v.import_review, name="import_review"),
     path("api/places/", v.api_places, name="api_places"),
     path("api/places/search/", v.api_place_search, name="api_place_search"),

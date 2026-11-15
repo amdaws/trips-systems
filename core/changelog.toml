@@ -468,3 +468,21 @@ items = [
   { category = "security", area = "Stays", text = "A public shuttle or bus to a hotel's door no longer names the hotel in the directions to or from it." },
   { category = "security", area = "Stays", text = "A stay's label can't include part of the hotel's name either. Older labels that did, and the recent-updates entries that showed them, now show the city." },
 ]
+
+[[release]]
+at = 2026-11-15T14:27:00+10:00
+title = "Send to Trips, and Claude reads bookings"
+items = [
+  { category = "new", area = "Planner", text = "Send to Trips: a button for the browser's bookmarks bar that adds the sight, stay or transfer on the page you're looking at to a trip, with its details filled in. It reads the page in your own browser, so sites that won't show their pages to the planner, such as Trip.com, still work." },
+  { category = "new", area = "Planner", text = "Claude can read booking confirmations, pasted pages and scanned PDFs, telling a total paid from an amount due later and 3 PM from 3 AM. It works once the site has a key for it." },
+  { category = "fixed", area = "Planner", text = "An \"amount due at the hotel: 0\" line on a confirmation no longer stands in for what was paid." },
+  { category = "fixed", area = "Activities", text = "Trip.com sights with a number in their name are read from their link too." },
+  { category = "improved", area = "Site", text = "The privacy policy now says that booking confirmations and pages added to the private planner can be read by Claude." },
+]
+
+[[release]]
+at = 2026-11-15T14:44:00+10:00
+title = "Exact map pins from more pages"
+items = [
+  { category = "improved", area = "Planner", text = "Send to Trips pins a sight exactly where the page says it is when the page gives its position as a latitude and longitude, as Wikipedia does, rather than looking it up by name. Drag the button to the bookmarks bar again to get the update." },
+]

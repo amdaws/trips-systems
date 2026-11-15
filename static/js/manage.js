@@ -379,7 +379,9 @@
   // on the Budget page's estimate once saved), what it cost once it's Booked.
   function setCost(set, f) {
     if (!f.amount) return;
-    set("cost", f.amount);  // an activity's is per person: its Total updates to match
+    var amount = f.amount, people = form.querySelector("[name=people]"), count = people ? parseInt(people.value, 10) : 0;
+    if (f.price_is_total && count > 1) amount = (parseFloat(f.amount) / count).toFixed(2);  // a group or car price, shared out
+    set("cost", amount);  // an activity's is per person: its Total updates to match
     set("cost_currency", f.currency);
     var cost = form.querySelector("[name=cost]");
     if (cost) cost.dispatchEvent(new Event("input", { bubbles: true }));
@@ -495,14 +497,30 @@
             if (fromLink) box.querySelector("details").open = true;
           } else {
             markFromLink(body.url || "pasted page text");
-            status.textContent = (kind === "stay" ? fillStay(result) : kind === "leg" ? fillLeg(result) : fillActivity(result)) + missingNote(result) +
-              (result.note ? " " + result.note : "");
+            status.textContent = fill(result);
             if (result.note && fromLink) box.querySelector("details").open = true;  // the page text gives the rest
           }
         })
         .catch(function () { status.textContent = "Couldn't read that. Try pasting the page text instead."; });
     });
   });
+
+  function fill(result) {
+    return (kind === "stay" ? fillStay(result) : kind === "leg" ? fillLeg(result) : fillActivity(result)) + missingNote(result) +
+      (result.note ? " " + result.note : "") + (result.fields && result.fields.read_by === "claude" ? " (Read by Claude.)" : "");
+  }
+
+  // A page sent from the browser with Send to Trips (static/js/capture.js) opens a new plan's form: fill it in.
+  try {
+    var sent = JSON.parse(sessionStorage.getItem("trips-capture") || "null");
+    if (sent && sent.kind === kind && box.getAttribute("data-new") === "1" && Date.now() - sent.at < 10 * 60 * 1000) {
+      sessionStorage.removeItem("trips-capture");
+      var linkBox = box.querySelector("input[type=url]");
+      if (linkBox && sent.url) linkBox.value = sent.url;
+      markFromLink(sent.url || "a page sent from the browser");
+      status.textContent = "From your browser: " + fill(sent.result);
+    }
+  } catch (error) { /* storage blocked, or nothing sent: the form is as usual */ }
 })();
 
 /* An activity's form: Cost per person × People, shown as its Total as either is typed. */

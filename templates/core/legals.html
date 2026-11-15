@@ -10,7 +10,7 @@
       <header class="legal__head">
         <p class="eyebrow">Legals</p>
         <h1>Legals</h1>
-        <p class="page-intro">How this site handles your information, the terms for using it, and where its maps and data come from. Last updated <time datetime="2026-10-31">31 October 2026</time>.</p>
+        <p class="page-intro">How this site handles your information, the terms for using it, and where its maps and data come from. Last updated <time datetime="2026-11-15">15 November 2026</time>.</p>
         <nav class="legal__toc" aria-label="On this page">
           <p class="small muted">On this page</p>
           <ol>
@@ -90,7 +90,7 @@
           <li>flight or train numbers</li>
         </ul>
         <p>Times on them are rounded. While a flight shown on a trip page is in the air, the page also shows where the plane is (from <a href="https://adsb.lol/">adsb.lol</a>), still without its flight number. Trips that hide their dates don't show this to visitors.</p>
-        <p>The private planner behind the site holds the owner's own bookings and travel documents, and only the owner can open it. To show things like weather, flight paths and timetables, the planner sends places, dates and flight numbers to the services listed under <a href="#credits">Credits</a>, but never anything about visitors.</p>
+        <p>The private planner behind the site holds the owner's own bookings and travel documents, and only the owner can open it. To show things like weather, flight paths and timetables, the planner sends places, dates and flight numbers to the services listed under <a href="#credits">Credits</a>, but never anything about visitors. When the owner adds a booking confirmation or a booking page to the planner, its text can be sent to Anthropic's Claude API to read the details from it.</p>
         <p>If you're mentioned on a trip page and would like something changed or removed, please get in touch.</p>
 
         <h3 id="privacy-rights">Your choices</h3>
@@ -190,6 +190,9 @@
 
           <dt>Currency rates</dt>
           <dd><a href="https://www.exchangerate-api.com/">Rates by Exchange Rate API</a>, used in the private planner.</dd>
+
+          <dt>Reading bookings</dt>
+          <dd><a href="https://www.anthropic.com/">Anthropic</a>'s Claude reads booking confirmations and pages in the private planner.</dd>
 
           <dt>Software</dt>
           <dd><a href="https://www.djangoproject.com/">Django</a> (BSD licence) and <a href="https://leafletjs.com/">Leaflet</a> (BSD 2-Clause licence).</dd>

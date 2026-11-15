@@ -1,12 +1,15 @@
 """Planner dashboard: everything behind the login (and Cloudflare Access) at /manage/."""
 
+import functools
 import hashlib
 import json
 import math
 import mimetypes
 import re
 import secrets
+import urllib.parse
 from collections import defaultdict
+from pathlib import Path
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -23,7 +26,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
-from . import activity_import, booking_costs, booking_import, changes, link_details, china_coords, flights, geocode, leg_import, metro, money, nights, presenters, routing, site_links, stay_import, transit
+from . import activity_import, booking_costs, booking_import, changes, claude_read, link_details, china_coords, flights, geocode, leg_import, metro, money, nights, presenters, routing, site_links, stay_import, transit
 from .forms import (
     BookingImportForm,
     ConfirmationForm,
@@ -504,10 +507,15 @@ def _import_review_other(request, record, trips, trip, found, kind):
 
 
 def _link_request(request):
+    """(link, pasted text, the body) from a Fill in request; the body's "capture" is a page sent from
+    the browser by the Send to Trips bookmarklet (see capture())."""
     try:
         data = json.loads(request.body)
     except ValueError:
         data = {}
+    data = data if isinstance(data, dict) else {}
+    if not isinstance(data.get("capture"), dict):
+        data["capture"] = None
     return str(data.get("url", "")).strip(), str(data.get("text", "")), data
 
 
@@ -517,12 +525,12 @@ def api_activity_extract(request, pk):
     """A sight's details (name, map position, price, hours, contact) from a link or pasted page text."""
     trip = _trip(pk)
     url, text, data = _link_request(request)
-    if not (url or text.strip()):
+    if not (url or text.strip() or data["capture"]):
         return JsonResponse({"error": "Paste a link or the page text first."}, status=400)
     day = trip.days.filter(pk=data.get("day")).first() if str(data.get("day", "")).isdigit() else None
     title = str(data.get("title", ""))[:200]  # as typed: stands in when the site won't show the page
     try:
-        result = link_details.read_activity(trip, url, text, day, title=title)
+        result = link_details.read_activity(trip, url, text, day, title=title, capture=data["capture"])
     except stay_import.PageError as exc:
         return JsonResponse({"error": str(exc)}, status=422)
     place = result["place"]
@@ -535,11 +543,11 @@ def api_activity_extract(request, pk):
 def api_leg_extract(request, pk):
     """A bus, coach, shuttle or car trip's route and details from a booking link (or pasted page text)."""
     trip = _trip(pk)
-    url, text, _data = _link_request(request)
-    if not (url or text.strip()):
+    url, text, data = _link_request(request)
+    if not (url or text.strip() or data["capture"]):
         return JsonResponse({"error": "Paste a link or the page text first."}, status=400)
     try:
-        result = link_details.read_leg(trip, url, text)
+        result = link_details.read_leg(trip, url, text, capture=data["capture"])
     except stay_import.PageError as exc:
         return JsonResponse({"error": str(exc)}, status=422)
     return JsonResponse({"fields": result["fields"], "missing": result["missing"],
@@ -1039,6 +1047,36 @@ def confirm_booking(request, pk, kind, plan_pk):
     return render(request, "manage/confirm_booking.html", _context(trip, CONFIRM_TABS[page], plan=plan, kind=kind, back=back, form=form))
 
 
+@functools.cache
+def _bookmarklet_source():
+    """journeys/bookmarklet.js without its comment lines."""
+    text = Path(__file__).with_name("bookmarklet.js").read_text()
+    return "\n".join(line for line in text.splitlines() if not line.strip().startswith("//"))
+
+
+def _bookmarklet(request):
+    """The Send to Trips bookmarklet: a javascript: link to drag to the bookmarks bar."""
+    target = request.build_absolute_uri(reverse("manage:capture"))
+    return "javascript:" + urllib.parse.quote(_bookmarklet_source().replace("__CAPTURE_URL__", target), safe="")
+
+
+@staff_required
+def capture(request):
+    """Send to Trips: where the bookmarklet brings a page from the browser, in the address's #fragment
+    (which only this page's script reads, static/js/capture.js). Pick the trip, whether it's an activity,
+    a stay or transport, and the day; the page is read (by Claude too, when it's set up), and the new
+    plan's form opens filled in. Without a page, it shows how to add the bookmarklet."""
+    trips = [{"id": trip.pk, "title": trip.title, "start": trip.start_date.isoformat(), "end": trip.end_date.isoformat(),
+              "days": [{"id": day.pk, "date": day.date.isoformat(), "label": f"{day.date:%a %-d %b} · Day {day.number}"}
+                       for day in trip.days.all()]}
+             for trip in Trip.objects.prefetch_related("days")]
+    urls = {"activity": reverse("manage:api_activity_extract", args=[0]), "stay": reverse("manage:api_stay_extract", args=[0]),
+            "leg": reverse("manage:api_leg_extract", args=[0]), "activity_form": reverse("manage:item_create", args=[0]),
+            "stay_form": reverse("manage:stay_create", args=[0]), "leg_form": reverse("manage:leg_create", args=[0])}
+    return render(request, "manage/capture.html", {"trips": trips, "urls": urls, "bookmarklet": _bookmarklet(request),
+                                                   "claude": claude_read.enabled()})
+
+
 @staff_required
 def imports(request):
     """The bookings inbox: forwarded emails waiting for review, and a form to paste or upload a confirmation."""
@@ -1199,11 +1237,11 @@ def api_place_create(request):
 def api_stay_extract(request, pk):
     """Stay details from a hotel or booking page link, or from page text pasted in."""
     _trip(pk)
-    url, text, _data = _link_request(request)
-    if not (url or text.strip()):
+    url, text, data = _link_request(request)
+    if not (url or text.strip() or data["capture"]):
         return JsonResponse({"error": "Paste a link or the page text first."}, status=400)
     try:
-        result = link_details.read_stay(url, text)
+        result = link_details.read_stay(url, text, capture=data["capture"])
     except stay_import.PageError as exc:
         return JsonResponse({"error": str(exc)}, status=422)
     return JsonResponse({"fields": result["fields"], "missing": result["missing"],

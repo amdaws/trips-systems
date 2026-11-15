@@ -238,7 +238,8 @@ def extract(page, url=""):
             add("rating", f"{rating['ratingValue']}/{rating.get('bestRating', 10)} ({rating.get('reviewCount', '?')} reviews)")
 
     # Trip.com's own page data.
-    lat, lng = _first(r'"lat"\s*:\s*"?(-?\d+\.\d+)', text), _first(r'"lng"\s*:\s*"?(-?\d+\.\d+)', text)
+    lat = _first(r'"lat"\s*:\s*"?(-?\d+\.\d+)', text)
+    lng = _first(r'"lng"\s*:\s*"?(-?\d+\.\d+)', text) or _first(r'"lon"\s*:\s*"?(-?\d+\.\d+)', text)  # Trip.com's, else Wikipedia's
     if lat and lng and not found.get("lat"):
         found["lat"], found["lon"] = lat, lng
     add("phone", _first(r'"tels"\s*:\s*\[\s*\{\s*"show"\s*:\s*"([^"]+)"', text))

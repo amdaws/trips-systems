@@ -166,7 +166,8 @@ def extract(page, url="", name_hint=""):
     wiki = re.search(rf'"wgCoordinates"\s*:\s*\{{\s*"lat"\s*:\s*{_NUMBER}\s*,\s*"lon"\s*:\s*{_NUMBER}', text)
     if wiki and "lat" not in found:
         found["lat"], found["lon"] = wiki.group(1), wiki.group(2)
-    lat, lng = _first(r'"lat"\s*:\s*"?(-?\d+\.\d+)', text), _first(r'"lng"\s*:\s*"?(-?\d+\.\d+)', text)
+    lat = _first(r'"lat"\s*:\s*"?(-?\d+\.\d+)', text)
+    lng = _first(r'"lng"\s*:\s*"?(-?\d+\.\d+)', text) or _first(r'"lon"\s*:\s*"?(-?\d+\.\d+)', text)  # Trip.com's, else Wikipedia's
     if lat and lng and "lat" not in found:
         found["lat"], found["lon"] = lat, lng
     for lat_tag, lon_tag in (("place:location:latitude", "place:location:longitude"), ("og:latitude", "og:longitude")):

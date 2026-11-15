@@ -172,7 +172,8 @@ def tripcom_activity(url):
     found = {"site": "trip.com", "url": url, "kind": "activity"}
     segments = [s for s in urllib.parse.unquote(urllib.parse.urlsplit(url).path).lower().split("/") if s]
     for index in range(len(segments) - 1, -1, -1):
-        page = re.fullmatch(r"([a-z][a-z0-9'-]*[a-z])-\d+", segments[index])
+        # The name, then Trip.com's number for it: "chongqing-1949-129377915" is "Chongqing 1949".
+        page = re.fullmatch(r"([a-z][a-z0-9'-]*?)-(\d{3,})", segments[index])
         if page and page[1] not in TRIPCOM_PAGES:
             found["name"] = _words(page[1])
             city = segments[index - 1] if index else ""

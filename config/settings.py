@@ -241,6 +241,11 @@ INBOUND_EMAIL_TOKEN = os.environ.get("INBOUND_EMAIL_TOKEN", "")
 MAILGUN_WEBHOOK_SIGNING_KEY = os.environ.get("MAILGUN_WEBHOOK_SIGNING_KEY", "")
 INBOUND_ALLOWED_SENDERS = [s.lower() for s in env_list("INBOUND_ALLOWED_SENDERS")]
 
+# Claude reads booking pages, pasted page text and confirmations for the planner (journeys/claude_read.py).
+# Off without a key: the planner's own pattern-matching readers are used instead.
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+CLAUDE_MODEL = os.environ.get("TRIPS_CLAUDE_MODEL", "") or "claude-haiku-5-5"
+
 SITE_NAME = "Aaron Daws Trips"
 SITE_TAGLINE = "Travel plans, places and notes by Aaron Daws."
 

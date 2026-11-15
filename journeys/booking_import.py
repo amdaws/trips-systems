@@ -82,13 +82,19 @@ def text_from_email(raw):
 
 
 def text_from_pdf(data):
+    """A PDF's text; for one with none to extract (a scan or photo), the words as Claude reads them."""
     from pypdf import PdfReader
 
     try:
         reader = PdfReader(io.BytesIO(data))
-        return clean_text("\n".join(page.extract_text() or "" for page in reader.pages[:20]))
+        text = clean_text("\n".join(page.extract_text() or "" for page in reader.pages[:20]))
     except Exception:
-        return ""
+        text = ""
+    if len(text) < 40:
+        from . import claude_read
+
+        text = clean_text(claude_read.pdf_text(data)) or text
+    return text
 
 
 def text_from_upload(upload):
@@ -142,6 +148,8 @@ def _amount(text):
             for match in re.finditer(re.escape(symbol) + r"\s?([\d,]+(?:\.\d{1,2})?)", line):
                 if re.search(r"-\s*$", line[: match.start()]):
                     continue  # a discount line ("- AU$72.30")
+                if not _positive(match[1]):
+                    continue  # "Amount due at hotel: CNY 0.00" after the total paid
                 best = (match[1].replace(",", ""), code)
                 break
             else:
@@ -219,6 +227,9 @@ def parse(text, trip=None, subject=""):
         found["amount"], found["currency"] = amount
 
     _activity_details(found, text, lines, subject)
+    if found["amount"] is not None and not _positive(found["amount"]):
+        found["amount"], found["currency"] = None, ""  # "Amount due at hotel: 0.00" isn't what it cost
+    _claude_reads(found, text, subject)
 
     if trip:
         numbers = {leg.number.upper(): leg for leg in trip.legs.exclude(number="")}
@@ -226,6 +237,29 @@ def parse(text, trip=None, subject=""):
             if token in numbers:
                 found["legs"].append(numbers[token].pk)
     return found
+
+
+def _positive(amount):
+    try:
+        return float(str(amount).replace(",", "")) > 0
+    except ValueError:
+        return False
+
+
+def _claude_reads(found, text, subject):
+    """With an API key, Claude reads the confirmation too, and what it found wins: it tells a total paid
+    from an amount due later, 3 PM from 3 AM, and a drop-off from a "Total" line. The patterns' answers
+    stay for anything it left empty (and the trip's flight and train numbers are still matched here)."""
+    from . import claude_read
+
+    # The text alone (already without PINs), so the inbox's first look and the review share one read.
+    read = claude_read.for_confirmation(claude_read.read("confirmation", text))
+    if not read:
+        return
+    found.update(read)
+    found["read_by"] = "claude"
+    if found["kind"] != "stay":
+        found["name"] = found.get("title") or found["name"]
 
 
 def _labelled(text, labels, length=160):

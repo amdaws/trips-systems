@@ -162,10 +162,11 @@ def per_person(total, people):
     return (Decimal(total) / max(people, 1)).quantize(Decimal("0.01"))
 
 
-def total_from_price(plan, price):
+def total_from_price(plan, price, per_person=True):
     """A listing price for a plan, as the total its budget line holds: an activity's price is per person
-    (and its People is kept, so the split stays as it was priced); a stay's or transport's is the price."""
-    if not isinstance(plan, Item):
+    (and its People is kept, so the split stays as it was priced) unless it's for the whole group
+    (`per_person=False`, a private car or package); a stay's or transport's is the price."""
+    if not isinstance(plan, Item) or not per_person:
         return Decimal(price)
     people = people_for(plan)
     if plan.people != people:

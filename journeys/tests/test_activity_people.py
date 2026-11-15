@@ -95,6 +95,10 @@ class TripComActivityTests(PlannerCase):
         self.assertEqual(site_links.tripcom_activity("https://www.trip.com/travel-guide/attraction/zhangjiajie-27/tianmen-mountain-80463/")["city"],
                          "Zhangjiajie")
         self.assertNotIn("name", site_links.tripcom_activity("https://www.trip.com/things-to-do/detail/36394123/?locale=en-AU"))
+        self.assertEqual(site_links.tripcom_activity("https://au.trip.com/travel-guide/attraction/chongqing/chongqing-1949-129377915/")["name"],
+                         "Chongqing 1949")  # a number in the name
+        self.assertEqual(site_links.tripcom_activity("https://au.trip.com/travel-guide/attraction/guilin/li-river-four-star-cruise-ship-1500450")
+                         ["name"], "Li River Four Star Cruise Ship")
         self.assertEqual(site_links.tripcom_activity("https://www.klook.com/activity/1-x/"), {})
 
     def test_a_blocked_tripcom_link_still_finds_the_place(self):

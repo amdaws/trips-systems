@@ -457,3 +457,66 @@ items = [
   { category = "new", area = "Planner", text = "A planned stay, transport or activity with a link has its details read from that page as soon as it's saved, filling only what's empty, and a Refresh details button tries again." },
   { category = "new", area = "Planner", text = "On the budget, tick several lines to set who paid for them all at once." },
 ]
+
+[[release]]
+at = 2026-11-15T13:45:00+10:00
+title = "Costs per person, Trip.com sights, and hotels kept private"
+items = [
+  { category = "new", area = "Activities", text = "An activity's cost is now per person, with how many people it's for beside it (starting at the trip's travellers) and the total it comes to, which is what the budget counts. Several activities can be set to a number of people at once." },
+  { category = "improved", area = "Activities", text = "Trip.com doesn't let the planner read its pages, so a Trip.com sight's name and city now come from its link, or the activity's title is used, and the place is found on the map. Pasted page text also fills in the address and opening hours." },
+  { category = "fixed", area = "Planner", text = "A booking added without a price, such as a confirmation that doesn't say what was paid, keeps counting its estimated cost in the budget until what it cost is added. Clearing a booked cost now clears it." },
+  { category = "security", area = "Stays", text = "A public shuttle or bus to a hotel's door no longer names the hotel in the directions to or from it." },
+  { category = "security", area = "Stays", text = "A stay's label can't include part of the hotel's name either. Older labels that did, and the recent-updates entries that showed them, now show the city." },
+]
+
+[[release]]
+at = 2026-11-15T14:27:00+10:00
+title = "Send to Trips, and Claude reads bookings"
+items = [
+  { category = "new", area = "Planner", text = "Send to Trips: a button for the browser's bookmarks bar that adds the sight, stay or transfer on the page you're looking at to a trip, with its details filled in. It reads the page in your own browser, so sites that won't show their pages to the planner, such as Trip.com, still work." },
+  { category = "new", area = "Planner", text = "Claude can read booking confirmations, pasted pages and scanned PDFs, telling a total paid from an amount due later and 3 PM from 3 AM. It works once the site has a key for it." },
+  { category = "fixed", area = "Planner", text = "An \"amount due at the hotel: 0\" line on a confirmation no longer stands in for what was paid." },
+  { category = "fixed", area = "Activities", text = "Trip.com sights with a number in their name are read from their link too." },
+  { category = "improved", area = "Site", text = "The privacy policy now says that booking confirmations and pages added to the private planner can be read by Claude." },
+]
+
+[[release]]
+at = 2026-11-15T14:44:00+10:00
+title = "Exact map pins from more pages"
+items = [
+  { category = "improved", area = "Planner", text = "Send to Trips pins a sight exactly where the page says it is when the page gives its position as a latitude and longitude, as Wikipedia does, rather than looking it up by name. Drag the button to the bookmarks bar again to get the update." },
+]
+
+[[release]]
+at = 2026-11-15T15:53:00+10:00
+title = "Claude reads pasted links"
+items = [
+  { category = "improved", area = "Planner", text = "A link pasted into Fill in, and the check made when a planned stay, activity or transfer with a link is saved or refreshed, is now read by Claude too, for the name, price, address, phone, email and opening hours or check-in times, whenever the site lets the planner read its page." },
+  { category = "improved", area = "Planner", text = "When a site won't show its page to the planner, the message now suggests Send to Trips as well as pasting the page's text." },
+]
+
+[[release]]
+at = 2026-11-15T21:52:00+10:00
+title = "Stop guides, a trip check and taxi cards"
+items = [
+  { category = "new", area = "Itinerary", text = "Stop guides: each overnight stop can have its own page, with its name in Chinese and pinyin, a few facts, a little history, the last ten years and the natural wonders nearby. Claude drafts them, and each is checked before it's published. Stop names link to their guides." },
+  { category = "new", area = "Planner", text = "A trip check: nights with nowhere to stay, connections too tight to make, plans at the same time, train tickets on sale and missing details, plus a review by Claude of anything that won't work, such as a sight planned on a day it's closed." },
+  { category = "new", area = "Planner", text = "Taxi cards: each stay's and activity's name and address in Chinese, big enough to show a driver. Claude copies them from booking pages and confirmations, never translating them." },
+  { category = "improved", area = "Site", text = "The privacy policy now covers Claude reviewing trip plans and drafting stop guides." },
+]
+
+[[release]]
+at = 2026-11-22T10:58:00+10:00
+title = "Booked and still to book"
+items = [
+  { category = "new", area = "Planner", text = "The Transport page counts what's booked and what's still to book, by flights, trains and the rest, with when each train's tickets go on sale. It can show just what's still to book, or just what's booked." },
+  { category = "improved", area = "Itinerary", text = "Flights and trains on the trip page say whether they're booked yet, and when a train's tickets go on sale. Only you and people with the secret link see this." },
+]
+
+[[release]]
+at = 2026-11-22T12:14:00+10:00
+title = "24-hour times"
+items = [
+  { category = "improved", area = "Planner", text = "Departure and arrival times, check-in and check-out times and activity times are typed and shown in 24-hour form (07:20, 21:42), whatever clock style the computer uses. Typing 720 or 2142 is enough." },
+  { category = "improved", area = "Site", text = "The journey planner takes and shows its leaving time in 24-hour form too." },
+]

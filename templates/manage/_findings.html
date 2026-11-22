@@ -1,0 +1,14 @@
+{# A trip check's findings: level, day and text, with a link to the plan where there is one. #}
+{% if findings %}
+<ul class="list-plain findings">
+  {% for finding in findings %}
+  <li class="finding finding--{{ finding.level }}">
+    <span class="badge {% if finding.level == 'problem' %}badge--red{% elif finding.level == 'warning' %}badge--amber{% endif %}">{{ finding.level_word }}</span>
+    <span class="finding__text">{% if finding.day %}<strong>{{ finding.day|date:"D j M" }}</strong> · {% endif %}{{ finding.text }}</span>
+    {% if finding.link %}<a class="btn btn--small" href="{{ finding.link }}">Open</a>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted small">{{ empty }}</p>
+{% endif %}

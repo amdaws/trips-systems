@@ -1,12 +1,15 @@
 """Planner dashboard: everything behind the login (and Cloudflare Access) at /manage/."""
 
+import functools
 import hashlib
 import json
 import math
 import mimetypes
 import re
 import secrets
+import urllib.parse
 from collections import defaultdict
+from pathlib import Path
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -23,7 +26,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
-from . import activity_import, booking_costs, booking_import, changes, link_details, china_coords, flights, geocode, leg_import, metro, money, nights, presenters, routing, site_links, stay_import, transit
+from . import activity_import, booking_costs, booking_import, changes, claude_read, guides, link_details, to_book, trip_check, china_coords, flights, geocode, leg_import, metro, money, nights, presenters, routing, site_links, stay_import, transit
 from .forms import (
     BookingImportForm,
     ConfirmationForm,
@@ -33,11 +36,12 @@ from .forms import (
     DocumentForm,
     ItemForm,
     LegForm,
+    PlaceGuideForm,
     StayForm,
     TravellerFormSet,
     TripForm,
 )
-from .models import AddedFrom, Airline, BookingImport, BookingStatus, BudgetItem, ChecklistItem, Day, Document, ExchangeRate, Item, Leg, Place, Stay, Trip, normalise
+from .models import AddedFrom, Airline, BookingImport, BookingStatus, BudgetItem, ChecklistItem, Day, Document, ExchangeRate, Item, Leg, Place, PlaceGuide, Stay, Trip, normalise
 from .search import MODE_KINDS, find_places, match_airport, match_station, parse_leg, place_json
 
 staff_required = user_passes_test(lambda u: u.is_active and u.is_staff, login_url="manage:login")
@@ -94,6 +98,7 @@ def _budget_totals(trip):
     for line in items:
         line.plan = booking_costs.plan_of(line)
         line.estimate_value, line.is_planned_estimate = booking_costs.estimate_for(line)
+        line.cost_unrecorded = booking_costs.cost_unrecorded(line)  # booked, but what it cost isn't on it yet
         plan = line.plan
         line.when = (plan.check_in_date if isinstance(plan, Stay) else plan.depart_date if isinstance(plan, Leg)
                      else plan.day.date if isinstance(plan, Item) else None)
@@ -152,15 +157,15 @@ def _record_booking_cost(request, form, plan, created=False):
         plan.save(update_fields=["added_from", "added_from_url"])
     # A planned one with a link: read the page now (when it's new or its link changed) to fill its gaps.
     if plan.status == BookingStatus.PLANNED and booking_costs.plan_link(plan) and (created or {"url", "links"} & set(form.changed_data)):
-        _report_refresh(request, *link_details.refresh(plan))
+        _report_refresh(request, *link_details.refresh(plan), note=plan.details_note)
 
 
-def _report_refresh(request, filled, missing, error):
+def _report_refresh(request, filled, missing, error, note=""):
     if error:
         messages.warning(request, f"Couldn't read its link: {error} Press Refresh details on it to try again.")
         return
     found = f"Filled in from its link: {', '.join(filled)}." if filled else "Its link had nothing new to fill in."
-    messages.info(request, found + (f" Still missing: {', '.join(missing)}." if missing else ""))
+    messages.info(request, found + (f" Still missing: {', '.join(missing)}." if missing else "") + (f" {note}" if note else ""))
 
 
 @staff_required
@@ -172,7 +177,7 @@ def refresh_details(request, pk, kind, plan_pk):
         raise Http404
     model, trip_field, page = CONFIRM_KINDS[kind]
     plan = get_object_or_404(model, pk=plan_pk, **{trip_field: trip})
-    _report_refresh(request, *link_details.refresh(plan))
+    _report_refresh(request, *link_details.refresh(plan), note=plan.details_note)
     edit = {"stay": "manage:stay_edit", "leg": "manage:leg_edit", "item": "manage:item_edit"}[kind]
     return redirect(reverse(edit, args=[trip.pk, plan.pk]))
 
@@ -349,16 +354,19 @@ def activities(request, pk):
     items = metro.for_activities(trip, Item.objects.filter(day__trip=trip).select_related("day", "place").prefetch_related("budget_items")
                                  .order_by("day__date", "order", "start_time", "id"))
     night_names = nights.night_names(trip)  # each night's city, from the stays
+    travellers = trip.travellers.count()
     days = []
     for item in items:
         item.missing = booking_costs.missing_details(item)
+        item.cost_view = booking_costs.activity_cost(item, travellers)  # cost per person × people = total
         if not days or days[-1]["day"] != item.day:
             days.append({"day": item.day, "night": night_names.get(item.day.date), "items": []})
         days[-1]["items"].append(item)
     trip_days = list(trip.days.all())
     for day in trip_days:
         day.night = night_names.get(day.date)
-    return render(request, "manage/activities.html", _context(trip, "activities", days=days, trip_days=trip_days))
+    return render(request, "manage/activities.html", _context(trip, "activities", days=days, trip_days=trip_days,
+                                                              default_people=booking_costs.default_people(trip, travellers)))
 
 
 @staff_required
@@ -387,6 +395,16 @@ def activities_bulk(request, pk):
             return redirect(back)
         changes.record_updates(items, day=day, directions={"pending": True})  # directions set out from that night's hotel
         messages.success(request, f"Moved {noun} to {day.date:%a %-d %b}.")
+    elif action == "people":
+        people = request.POST.get("people", "")
+        if not people.isdigit() or not 1 <= int(people) <= 99:
+            messages.info(request, "Enter how many people (1 to 99).")
+            return redirect(back)
+        travellers = trip.travellers.count()
+        for item in items:
+            booking_costs.set_people(item, int(people), travellers)
+        messages.success(request, f"Set {noun} to {people} {'person' if people == '1' else 'people'}: each cost per person is kept, "
+                                  "and the totals on the budget now match.")
     elif action == "delete":
         if request.POST.get("confirm") != "yes":
             rows = [{"pk": item.pk, "title": item.title, "detail": f"{item.day.date:%a %-d %b} · Day {item.day.number}"} for item in items]
@@ -444,7 +462,7 @@ def _import_review_other(request, record, trips, trip, found, kind):
                         messages.error(request, "The booking's date isn't one of this trip's days, so a new activity can't be added. Add it under Activities instead.")
                         return redirect("manage:import_review", record.pk)
                     chosen = Item(day=day, title=(found["title"] or found["name"] or "Booked activity")[:200], added_from=AddedFrom.IMPORT)
-                    fields |= {"title", "meeting_point", "start_time"}
+                    fields |= {"title", "meeting_point", "start_time", "name_local", "address_local"}
                 elif choice.isdigit():
                     chosen = get_object_or_404(Item, pk=choice, day__trip=trip)
                 if chosen:
@@ -490,10 +508,15 @@ def _import_review_other(request, record, trips, trip, found, kind):
 
 
 def _link_request(request):
+    """(link, pasted text, the body) from a Fill in request; the body's "capture" is a page sent from
+    the browser by the Send to Trips bookmarklet (see capture())."""
     try:
         data = json.loads(request.body)
     except ValueError:
         data = {}
+    data = data if isinstance(data, dict) else {}
+    if not isinstance(data.get("capture"), dict):
+        data["capture"] = None
     return str(data.get("url", "")).strip(), str(data.get("text", "")), data
 
 
@@ -503,15 +526,17 @@ def api_activity_extract(request, pk):
     """A sight's details (name, map position, price, hours, contact) from a link or pasted page text."""
     trip = _trip(pk)
     url, text, data = _link_request(request)
-    if not (url or text.strip()):
+    if not (url or text.strip() or data["capture"]):
         return JsonResponse({"error": "Paste a link or the page text first."}, status=400)
     day = trip.days.filter(pk=data.get("day")).first() if str(data.get("day", "")).isdigit() else None
+    title = str(data.get("title", ""))[:200]  # as typed: stands in when the site won't show the page
     try:
-        result = link_details.read_activity(trip, url, text, day)
+        result = link_details.read_activity(trip, url, text, day, title=title, capture=data["capture"])
     except stay_import.PageError as exc:
         return JsonResponse({"error": str(exc)}, status=422)
     place = result["place"]
-    return JsonResponse({"fields": result["fields"], "place": place_json(place) if place else None, "missing": result["missing"]})
+    return JsonResponse({"fields": result["fields"], "place": place_json(place) if place else None, "missing": result["missing"],
+                         "note": result.get("note", "")})
 
 
 @staff_required
@@ -519,11 +544,11 @@ def api_activity_extract(request, pk):
 def api_leg_extract(request, pk):
     """A bus, coach, shuttle or car trip's route and details from a booking link (or pasted page text)."""
     trip = _trip(pk)
-    url, text, _data = _link_request(request)
-    if not (url or text.strip()):
+    url, text, data = _link_request(request)
+    if not (url or text.strip() or data["capture"]):
         return JsonResponse({"error": "Paste a link or the page text first."}, status=400)
     try:
-        result = link_details.read_leg(trip, url, text)
+        result = link_details.read_leg(trip, url, text, capture=data["capture"])
     except stay_import.PageError as exc:
         return JsonResponse({"error": str(exc)}, status=422)
     return JsonResponse({"fields": result["fields"], "missing": result["missing"],
@@ -539,11 +564,16 @@ _find_place = link_details.find_place  # the booking imports place pick-ups and 
 
 @staff_required
 def legs(request, pk):
+    """Transport: every leg, or with ?show=to-book or ?show=booked only those (to_book.py), under a
+    count of what's booked and what's still to book."""
     trip = _trip(pk)
-    legs = presenters.legs_for(trip)
+    legs = to_book.mark(presenters.legs_for(trip), trip)
+    counts = to_book.summary(legs)
+    show = request.GET.get("show") if request.GET.get("show") in to_book.SHOW else "all"
+    legs = to_book.only(legs, show)
     for leg in legs:
         leg.missing = booking_costs.missing_details(leg)
-    return render(request, "manage/legs.html", _context(trip, "transport", legs=legs))
+    return render(request, "manage/legs.html", _context(trip, "transport", legs=legs, counts=counts, show=show))
 
 
 @staff_required
@@ -894,20 +924,22 @@ def document_delete(request, pk, doc_pk):
 # ---------- booking confirmations ----------
 
 IMPORT_FIELDS = [
-    ("booking_ref", "Booking number"), ("name", "Property"), ("address", "Address"), ("phone", "Phone"), ("email", "Email"),
+    ("booking_ref", "Booking number"), ("name", "Property"), ("address", "Address"), ("name_local", "Local name"),
+    ("address_local", "Local address"), ("phone", "Phone"), ("email", "Email"),
     ("check_in_date", "Check-in date"), ("check_in_time", "Check-in time"), ("check_out_date", "Check-out date"),
     ("check_out_time", "Check-out time"), ("room", "Room"), ("special_requests", "Special requests"),
 ]
 ACTIVITY_FIELDS = [
     ("booking_ref", "Booking number"), ("title", "Activity"), ("activity_date", "Date"), ("start_time", "Start time"),
-    ("meeting_point", "Meeting point"), ("travellers", "Travellers"),
+    ("meeting_point", "Meeting point"), ("name_local", "Local name"), ("address_local", "Local address"), ("travellers", "Travellers"),
 ]
 TRANSFER_FIELDS = [
     ("booking_ref", "Booking number"), ("title", "Service"), ("activity_date", "Pick-up date"), ("start_time", "Pick-up time"),
     ("pickup", "Pick-up"), ("dropoff", "Drop-off"), ("travellers", "Travellers"),
 ]
 CURRENT = {  # what each detail is called on the activity or leg it's added to
-    "activity": {"title": "title", "meeting_point": "address", "start_time": "start_time"},
+    "activity": {"title": "title", "meeting_point": "address", "start_time": "start_time", "name_local": "name_local",
+                 "address_local": "address_local"},
     "transfer": {"booking_ref": "booking_ref", "start_time": "depart_time", "activity_date": "depart_date"},
 }
 
@@ -1021,6 +1053,36 @@ def confirm_booking(request, pk, kind, plan_pk):
         if not form.errors:
             form.add_error(None, "Couldn't read any text from that.")
     return render(request, "manage/confirm_booking.html", _context(trip, CONFIRM_TABS[page], plan=plan, kind=kind, back=back, form=form))
+
+
+@functools.cache
+def _bookmarklet_source():
+    """journeys/bookmarklet.js without its comment lines."""
+    text = Path(__file__).with_name("bookmarklet.js").read_text()
+    return "\n".join(line for line in text.splitlines() if not line.strip().startswith("//"))
+
+
+def _bookmarklet(request):
+    """The Send to Trips bookmarklet: a javascript: link to drag to the bookmarks bar."""
+    target = request.build_absolute_uri(reverse("manage:capture"))
+    return "javascript:" + urllib.parse.quote(_bookmarklet_source().replace("__CAPTURE_URL__", target), safe="")
+
+
+@staff_required
+def capture(request):
+    """Send to Trips: where the bookmarklet brings a page from the browser, in the address's #fragment
+    (which only this page's script reads, static/js/capture.js). Pick the trip, whether it's an activity,
+    a stay or transport, and the day; the page is read (by Claude too, when it's set up), and the new
+    plan's form opens filled in. Without a page, it shows how to add the bookmarklet."""
+    trips = [{"id": trip.pk, "title": trip.title, "start": trip.start_date.isoformat(), "end": trip.end_date.isoformat(),
+              "days": [{"id": day.pk, "date": day.date.isoformat(), "label": f"{day.date:%a %-d %b} · Day {day.number}"}
+                       for day in trip.days.all()]}
+             for trip in Trip.objects.prefetch_related("days")]
+    urls = {"activity": reverse("manage:api_activity_extract", args=[0]), "stay": reverse("manage:api_stay_extract", args=[0]),
+            "leg": reverse("manage:api_leg_extract", args=[0]), "activity_form": reverse("manage:item_create", args=[0]),
+            "stay_form": reverse("manage:stay_create", args=[0]), "leg_form": reverse("manage:leg_create", args=[0])}
+    return render(request, "manage/capture.html", {"trips": trips, "urls": urls, "bookmarklet": _bookmarklet(request),
+                                                   "claude": claude_read.enabled()})
 
 
 @staff_required
@@ -1183,11 +1245,11 @@ def api_place_create(request):
 def api_stay_extract(request, pk):
     """Stay details from a hotel or booking page link, or from page text pasted in."""
     _trip(pk)
-    url, text, _data = _link_request(request)
-    if not (url or text.strip()):
+    url, text, data = _link_request(request)
+    if not (url or text.strip() or data["capture"]):
         return JsonResponse({"error": "Paste a link or the page text first."}, status=400)
     try:
-        result = link_details.read_stay(url, text)
+        result = link_details.read_stay(url, text, capture=data["capture"])
     except stay_import.PageError as exc:
         return JsonResponse({"error": str(exc)}, status=422)
     return JsonResponse({"fields": result["fields"], "missing": result["missing"],
@@ -1208,3 +1270,106 @@ def api_parse_leg(request):
     except (TypeError, ValueError):
         depart = None
     return JsonResponse(parse_leg(str(data.get("text", ""))[:300], trip=trip, depart_date=depart))
+
+
+# ---------- taxi cards, the trip check and stop guides ----------
+
+
+@staff_required
+def taxi_cards(request, pk):
+    """Each stay's and activity's name and address as written locally, big enough to show a driver.
+    Private: hotels' names and addresses never reach visitors."""
+    trip = _trip(pk)
+    stays = list(trip.stays.select_related("city").order_by("check_in_date", "id"))
+    items = list(Item.objects.filter(day__trip=trip).select_related("day").order_by("day__date", "start_time", "id"))
+    cards, without = [], []
+    for plan in stays + items:
+        is_stay = isinstance(plan, Stay)
+        entry = {
+            "plan": plan, "is_stay": is_stay, "name": (plan.name or plan.label) if is_stay else plan.title,
+            "when": (f"{plan.check_in_date:%a} {plan.check_in_date.day} – {plan.check_out_date:%a} {plan.check_out_date.day} {plan.check_out_date:%b}"
+                     if is_stay else f"{plan.day.date:%a} {plan.day.date.day} {plan.day.date:%b}"),
+            "edit": reverse("manage:stay_edit" if is_stay else "manage:item_edit", args=[trip.pk, plan.pk]),
+        }
+        (cards if plan.name_local or plan.address_local else without).append(entry)
+    return render(request, "manage/taxi_cards.html", _context(trip, "stays", cards=cards, without=without))
+
+
+@staff_required
+def trip_check_page(request, pk):
+    """The trip check: the rules' findings (always fresh) and Claude's last review, run again on request."""
+    trip = _trip(pk)
+    if request.method == "POST":
+        if not claude_read.enabled():
+            messages.error(request, "Claude isn't set up on this site, so only the checks below ran.")
+        elif trip_check.review(trip):
+            messages.success(request, "Claude has reviewed the plan.")
+        else:
+            messages.error(request, "Claude didn't answer in time. Try again in a minute.")
+        return redirect("manage:check", trip.pk)
+    review = getattr(trip, "claude_check", None)
+    context = _context(
+        trip, "check", findings=trip_check.with_dates(trip_check.rules(trip)), review=review,
+        review_findings=trip_check.with_dates(list(review.findings)) if review else [],
+        review_stale=bool(review) and review.plan_key != trip_check.plan_key(trip_check.plan_text(trip)),
+        claude=claude_read.enabled(),
+    )
+    return render(request, "manage/check.html", context)
+
+
+def _stop_places(trip):
+    """The trip's overnight stops that are places (cities), each with its guide (or None)."""
+    stops = [stop for stop in presenters.stops(trip) if stop["place"]]
+    found = {guide.place_id: guide for guide in PlaceGuide.objects.filter(place__in=[stop["place"] for stop in stops])}
+    for stop in stops:
+        stop["guide"] = found.get(stop["place"].pk)
+    return stops
+
+
+@staff_required
+def guides_page(request, pk):
+    trip = _trip(pk)
+    public = trip.get_public_url()
+    stops = _stop_places(trip)
+    for stop in stops:
+        stop["public_url"] = reverse("journeys:stop", args=[trip.slug, stop["place"].pk]) if trip.visibility == Trip.Visibility.PUBLIC else (
+            reverse("journeys:shared_stop", args=[trip.share_token, stop["place"].pk]) if public else "")
+    return render(request, "manage/guides.html", _context(trip, "guides", stops=stops, claude=claude_read.enabled()))
+
+
+def _trip_stop(trip, place_pk):
+    for stop in _stop_places(trip):
+        if stop["place"].pk == place_pk:
+            return stop
+    raise Http404
+
+
+@staff_required
+@require_POST
+def guide_draft(request, pk, place_pk):
+    """Draft with Claude (or Draft again): the guide is saved unpublished, for checking."""
+    trip = _trip(pk)
+    stop = _trip_stop(trip, place_pk)
+    if not claude_read.enabled():
+        messages.error(request, "Claude isn't set up on this site, so guides have to be written by hand.")
+        return redirect("manage:guide_edit", trip.pk, place_pk)
+    guide = guides.draft(stop["place"], when=stop["first"], again=bool(stop["guide"]))
+    if guide:
+        messages.success(request, f"Claude drafted the guide to {stop['name']}. Check the facts, change anything that's off, then publish it.")
+    else:
+        messages.error(request, "Claude didn't answer in time. Try again in a minute.")
+    return redirect("manage:guide_edit", trip.pk, place_pk)
+
+
+@staff_required
+def guide_edit(request, pk, place_pk):
+    trip = _trip(pk)
+    stop = _trip_stop(trip, place_pk)
+    guide = stop["guide"] or PlaceGuide(place=stop["place"])
+    form = PlaceGuideForm(request.POST or None, instance=guide)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, f"Saved the guide to {stop['name']}" + (" (published)." if form.instance.is_published else " as a draft."))
+        return redirect("manage:guides", trip.pk)
+    return render(request, "manage/guide_form.html", _context(
+        trip, "guides", form=form, stop=stop, guide=guide, claude=claude_read.enabled(), pinyin=guides.pinyin(stop["place"])))

@@ -83,3 +83,18 @@ done
 curl -fsS -o /dev/null -H "Host: trips.aarondaws.com.au" http://127.0.0.1:8001/ \
   && echo "Deployed: site is responding." \
   || { echo "Site is not responding. Check: journalctl -u trips -n 50" >&2; exit 1; }
+
+echo "==> Checking the web server's settings"
+# /etc/caddy/Caddyfile also serves other sites, so it isn't installed from here: say when its block
+# for this site differs from deploy/Caddyfile (which holds, for one, the 1 MB cap on request bodies).
+caddy_block() { awk '/^trips\.aarondaws\.com\.au \{/{f=1} f{print} f&&/^\}/{exit}' "$1"; }
+if [ "$(caddy_block "$SRC/deploy/Caddyfile")" != "$(caddy_block /etc/caddy/Caddyfile)" ]; then
+  echo "WARNING: the trips.aarondaws.com.au block in /etc/caddy/Caddyfile differs from deploy/Caddyfile." >&2
+  echo "         Copy it across, then: sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy" >&2
+fi
+# The browser security rules must be enforced, not only reported: an env file kept from the
+# report-only days could still say DJANGO_CSP_ENFORCE=0 (new settings are added, old ones kept).
+headers=$(curl -fsS -D - -o /dev/null -H "Host: trips.aarondaws.com.au" http://127.0.0.1:8001/)
+if ! grep -qi '^content-security-policy:' <<<"$headers"; then
+  echo "WARNING: the Content-Security-Policy is report-only. Set DJANGO_CSP_ENFORCE=1 in $ENV_FILE, then: sudo systemctl restart trips" >&2
+fi

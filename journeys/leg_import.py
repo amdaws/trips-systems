@@ -22,7 +22,9 @@ SEPARATOR = r"\s+(?:to|-|–|—|→|->|⇌|⇄|<->|↔|~)\s+"
 MONEY = r"((?:A\$|AU\$|US\$|HK\$|NT\$|S\$|CN¥|¥|￥|€|£|\$|RMB\s?)\s?\d[\d,]*(?:\.\d{1,2})?)"
 
 
-def read_link(url):
+def read_link(url, read_page=None):
+    """A transfer's details from its link. `read_page(page)`, when given, reads the fetched page instead of
+    extract (link_details passes one that has Claude read it too)."""
     from . import site_links
 
     booked = site_links.read(url)
@@ -34,8 +36,9 @@ def read_link(url):
     except PageError:
         raise
     if re.search(r"verification|captcha|verify you are human", page[:20000], re.I) and len(page) < 40000:
-        raise PageError("The site showed a robot check instead of the page. Open it, select all (Ctrl/⌘ + A), copy, and paste the text below.")
-    return extract(page, url)
+        raise PageError("The site showed a robot check instead of the page. Use Send to Trips on the page in your browser, "
+                        "or select all (Ctrl/⌘ + A), copy, and paste the text below.")
+    return read_page(page) if read_page else extract(page, url)
 
 
 def mode_for(text):

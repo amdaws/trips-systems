@@ -26,6 +26,11 @@
   </ul>
 </section>
 
+<section class="card card--flat stack" style="--stack: var(--space-2xs)">
+  <h2 style="font-size: var(--step-1)">Send to Trips from your browser</h2>
+  <p class="small muted">A button for your bookmarks bar: on a Trip.com, Klook, Viator or hotel page, click it to add that sight, stay or transfer to a trip, with its details filled in. It reads the page in your browser, so sites that turn the planner's server away still work. <a href="{% url 'manage:capture' %}">Add the button</a>.</p>
+</section>
+
 <form method="post" enctype="multipart/form-data" class="form card stack">
   {% csrf_token %}
   <h2 style="font-size: var(--step-1)">Import a booking</h2>

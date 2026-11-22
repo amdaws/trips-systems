@@ -36,6 +36,7 @@
     <input id="import-link" class="input" type="url" style="flex: 1 1 20rem" placeholder="{% if stay_import %}https://au.trip.com/hotels/…{% elif leg_import %}https://au.trip.com/things-to-do/detail/…{% else %}https://www.openstreetmap.org/…{% endif %}">
     <button type="button" class="btn btn--primary" data-page-fill="link">Fill in</button>
   </div>
+  <p class="small muted">Trip.com and some other sites won't show their pages to the planner's server: on the page in your browser, click <a href="{% url 'manage:capture' %}">Send to Trips</a> instead.</p>
   <details>
     <summary class="small">Site won't let it read the page? Paste the page text instead</summary>
     <div class="stack" style="--stack: var(--space-2xs); margin-top: .5rem">

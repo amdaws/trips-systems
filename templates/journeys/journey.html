@@ -70,7 +70,7 @@
           <span class="journey-field__label" id="journey-when-label">Leave</span>
           <div class="journey-field__row journey-when" role="group" aria-labelledby="journey-when-label">
             <input class="input" type="date" data-when-date aria-label="Date">
-            <input class="input" type="time" data-when-time aria-label="Time, in the city's own time">
+            <input class="input journey-when__time" type="text" data-when-time inputmode="numeric" placeholder="HH:MM" maxlength="5" autocomplete="off" aria-label="Time, 24-hour, in the city's own time">
             <button type="button" class="btn btn--subtle" data-when-now aria-pressed="true">Now</button>
           </div>
           <p class="hint" data-when-hint>Leaving now, with live times.</p>

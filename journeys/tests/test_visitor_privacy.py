@@ -205,3 +205,85 @@ class PtvAddressTests(TestCase):
         with mock.patch("journeys.transit._download", side_effect=download), self.assertRaises(OSError):
             transit._fetch_feed(feed, {})
         self.assertEqual(tried, [new, transit.PTV_URL])
+
+
+class HotelTransferTests(TestCase):
+    """A public shuttle or bus to the hotel's door: visitors get no metro or taxi transfer from it,
+    which would name the hotel ("Walk from <hotel> to the hotel")."""
+
+    def setUp(self):
+        from journeys.models import Stay
+
+        self.trip, self.places = sample_trip()
+        self.hotel = Place.objects.create(name="PROBE-SHUTTLE-HOTEL", kind=Place.Kind.HOTEL, lat=22.5450, lon=114.0550,
+                                          tz="Asia/Shanghai", country="CN", city="Shenzhen")
+        self.leg = Leg.objects.create(trip=self.trip, mode=Leg.Mode.SHUTTLE, origin=self.places["szn"], destination=self.hotel,
+                                      depart_date=date(2027, 1, 2), depart_time=time(9, 0), arrive_time=time(9, 40), is_public=True)
+        self.stay = Stay.objects.create(trip=self.trip, label="Shenzhen", name="Probe Stay", city=self.places["shenzhen"],
+                                        location=self.hotel, check_in_date=date(2027, 1, 2), check_out_date=date(2027, 1, 3),
+                                        is_public=True)
+        Stay.objects.filter(pk=self.stay.pk).update(metro={"taxi": {"arrival": {"place": self.hotel.pk, "minutes": 5, "km": 1.0}}})
+
+    def views(self, exact):
+        from journeys import metro
+        from journeys.models import Stay
+
+        [stay] = metro.for_stays(self.trip, [Stay.objects.get(pk=self.stay.pk)], exact=exact)
+        return stay.metro_view
+
+    def test_owner_sees_it_visitors_do_not(self):
+        self.assertEqual(self.views(exact=True)["arrival_taxi"]["place"], "PROBE-SHUTTLE-HOTEL")
+        self.assertNotIn("arrival_taxi", self.views(exact=False))
+        for page, body in _pages(self.client, self.trip).items():
+            with self.subTest(page=page):
+                self.assertNotIn("PROBE-SHUTTLE-HOTEL", body)
+
+    def test_a_place_named_after_the_property_counts_as_the_hotel(self):
+        from journeys import metro
+
+        Place.objects.filter(pk=self.hotel.pk).update(kind=Place.Kind.ATTRACTION, name="Probe Stay Shuttle Stop")
+        self.stay.location = None
+        self.assertTrue(metro.at_the_hotel(Place.objects.get(pk=self.hotel.pk), self.stay))
+        self.assertFalse(metro.at_the_hotel(self.places["szn"], self.stay))
+
+
+class LabelPartOfTheHotelTests(TestCase):
+    def test_part_of_the_name_gives_it_away(self):
+        from journeys.models import label_gives_hotel_away as gives
+
+        self.assertTrue(gives("Hilton", "Hilton Shenzhen Futian", "Shenzhen"))
+        self.assertTrue(gives("Futian Hilton", "Hilton Shenzhen Futian", "Shenzhen"))
+        self.assertTrue(gives("希尔顿", "深圳希尔顿酒店", "Shenzhen", "深圳"))
+        for label, name, city in (("Shenzhen", "Hilton Shenzhen Futian", "Shenzhen"), ("Shenzhen 2", "Hilton Shenzhen Futian", "Shenzhen"),
+                                  ("Shenzhen Airport", "Hilton Garden Inn Shenzhen Airport", "Shenzhen"),
+                                  ("Hong Kong 2", "Hong Kong Hotel Grand", "Hong Kong")):
+            with self.subTest(label=label):
+                self.assertFalse(gives(label, name, city))
+        self.assertFalse(gives("深圳", "深圳希尔顿酒店", "Shenzhen", "深圳"))
+
+    def test_saved_and_typed_labels(self):
+        trip, places = sample_trip()
+        stay = Stay.objects.create(trip=trip, label="Hilton", name="Hilton Shenzhen Futian", city=places["shenzhen"],
+                                   check_in_date=date(2027, 1, 2), check_out_date=date(2027, 1, 3))
+        self.assertEqual(stay.label, "Shenzhen")
+        form = StayForm(data={"label": "Hilton", "kind": "hotel", "name": "Hilton Shenzhen Futian", "city": places["shenzhen"].pk,
+                              "check_in_date": "2027-01-02", "check_out_date": "2027-01-03"})
+        self.assertFalse(form.is_valid())
+        self.assertIn("part of it", str(form.errors["label"]))
+
+    def test_existing_labels_and_change_list_are_fixed(self):
+        import importlib
+
+        from django.apps import apps as django_apps
+
+        from journeys import changes
+
+        trip, places = sample_trip()
+        stay = Stay.objects.create(trip=trip, label="Shenzhen", name="Hilton Shenzhen Futian", city=places["shenzhen"],
+                                   check_in_date=date(2027, 1, 2), check_out_date=date(2027, 1, 3), is_public=True)
+        Stay.objects.filter(pk=stay.pk).update(label="Hilton")  # as saved before this check
+        change = changes.record(Stay.objects.get(pk=stay.pk), "added")  # the "Recently updated" list kept it too
+        importlib.import_module("journeys.migrations.0028_stay_labels_hide_hotel").hide_hotels_in_labels(django_apps, None)
+        stay.refresh_from_db(), change.refresh_from_db()
+        self.assertEqual((stay.label, change.data["public"]["label"]), ("Shenzhen", "Shenzhen"))
+        self.assertNotIn("Hilton", self.client.get(f"/trips/{trip.slug}/").content.decode())

@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.urls import reverse
@@ -66,6 +67,35 @@ def _added_from(field):
         "details_note": lambda: models.CharField(max_length=300, blank=True, editable=False,
                                                  help_text="Why the link couldn't be read, the last time it was tried."),
     }[field]()
+
+
+# Words in hotel names that say nothing about which hotel it is, or where (a label may share them).
+PLAIN_HOTEL_WORDS = {
+    "hotel", "hotels", "inn", "resort", "suite", "suites", "apartment", "apartments", "serviced", "hostel", "lodge", "motel",
+    "the", "and", "of", "at", "by", "in", "on", "for", "stay", "night", "nights", "city", "centre", "center", "central",
+    "downtown", "airport", "station", "railway", "north", "south", "east", "west", "old", "new", "town", "road", "street",
+    "international", "hong", "kong", "bay", "harbour", "harbor", "river", "lake", "beach", "park",
+}
+
+
+def label_gives_hotel_away(label, name, city="", city_local=""):
+    """Whether a stay's label names its property, wholly or in part ("Hilton" for "Hilton Shenzhen
+    Futian"): the label is shown to everyone, the property's name only to the owner. The city, a
+    number and plain words ("Shenzhen 2", "Shenzhen Airport") are fine. Pure: migration 0028 uses it."""
+    name, label = normalise(name or ""), normalise(label or "")
+    if not (name and label):
+        return False
+    if name in label:
+        return True
+    words = lambda text: set(re.findall(r"[a-z0-9']+", text))
+    telling = {word for word in words(name) - words(normalise(city)) - PLAIN_HOTEL_WORDS if len(word) >= 3 and not word.isdigit()}
+    if telling & words(label):
+        return True
+    for run in re.findall(r"[㐀-鿿]{2,}", label):  # Chinese: 希尔顿 in 深圳希尔顿酒店, but not the city 深圳
+        run = run.replace(city_local, "") if city_local else run
+        if len(run) >= 2 and run not in ("酒店", "宾馆", "饭店") and run in name:
+            return True
+    return False
 
 
 def normalise(text):
@@ -360,12 +390,19 @@ class Item(models.Model):
     end_time = models.TimeField(null=True, blank=True)
     place = models.ForeignKey(Place, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     address = models.CharField(max_length=300, blank=True)
+    name_local = models.CharField("local name", max_length=200, blank=True, help_text="As it's written locally (in Chinese characters in China), copied from the page or confirmation: shown big on the taxi card. Never on public pages.")
+    address_local = models.CharField("local address", max_length=300, blank=True, help_text="As it's written locally (in Chinese characters in China), copied from the page or confirmation: shown big on the taxi card. Never on public pages.")
     links = models.TextField(blank=True, help_text="One link per line. Optionally 'Label | https://…'.")
     opening_hours = models.CharField(max_length=300, blank=True, help_text="When it's open, e.g. 'Daily 09:00–17:30'.")
     phone = models.CharField(max_length=60, blank=True)
     email = models.EmailField(blank=True)
     private_notes = models.TextField(blank=True)
     status = models.CharField(max_length=10, choices=BookingStatus.choices, default=BookingStatus.PLANNED)
+    people = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(99)],
+        help_text="How many people its cost is for: the cost is per person, and its budget line is the cost times this. "
+                  "Empty: the number of travellers in the trip's Settings.",
+    )
     added_from = _added_from("added_from")
     added_from_url = _added_from("added_from_url")
     confirmation_url = _added_from("confirmation_url")
@@ -568,6 +605,8 @@ class Stay(models.Model):
     kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.HOTEL)
     name = models.CharField("property name", max_length=200, blank=True)
     address = models.TextField(blank=True)
+    name_local = models.CharField("local name", max_length=200, blank=True, help_text="As it's written locally (in Chinese characters in China), copied from the page or confirmation: shown big on the taxi card. Never on public pages.")
+    address_local = models.TextField("local address", blank=True, help_text="As it's written locally (in Chinese characters in China), copied from the page or confirmation: shown big on the taxi card. Never on public pages.")
     city = models.ForeignKey(Place, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     location = models.ForeignKey(
         Place, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", help_text="Exact map location."
@@ -610,8 +649,9 @@ class Stay(models.Model):
 
     def label_names_hotel(self):
         """Whether the label gives the property away. Every viewer sees the label, so it must not."""
-        name, label = self.name.strip().casefold(), self.label.strip().casefold()
-        return bool(name and label and name in label)
+        city = self.city if self.city_id else None
+        where = (city.name if city else "", city.name_local if city else "")
+        return label_gives_hotel_away(self.label, self.name, *where) or label_gives_hotel_away(self.label, self.name_local, *where)
 
     def save(self, *args, **kwargs):
         # The stay form refuses such a label; this catches imports and anything else that saves directly.
@@ -819,6 +859,86 @@ class WeatherCache(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["place", "kind", "start_date", "end_date"], name="one_weather_entry")
         ]
+
+
+class ClaudeRead(models.Model):
+    """What Claude read from one text (a booking page, pasted text or a confirmation), kept so the same
+    text is never sent or paid for twice (the review and apply steps both read a confirmation)."""
+
+    key = models.CharField(max_length=64, unique=True, help_text="sha256 of the kind, model and text.")
+    kind = models.CharField(max_length=20)
+    fields = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.kind} {self.key[:8]}"
+
+
+class TripCheck(models.Model):
+    """Claude's last review of a trip's plan (trip_check.py): what it found, and a fingerprint of the
+    plan it read, so the Check page can say when the plan has changed since."""
+
+    trip = models.OneToOneField(Trip, on_delete=models.CASCADE, related_name="claude_check")
+    checked_at = models.DateTimeField()
+    plan_key = models.CharField(max_length=64, help_text="sha256 of the plan as Claude read it.")
+    findings = models.JSONField(default=list)
+    model = models.CharField(max_length=60, blank=True)
+
+    def __str__(self):
+        return f"{self.trip} checked {self.checked_at:%Y-%m-%d %H:%M}"
+
+
+def _pairs(text):
+    """'Label: text' lines as (label, text) pairs; a line without ': ' is all text."""
+    result = []
+    for line in (text or "").splitlines():
+        line = line.strip().lstrip("•-– ").strip()
+        if line:
+            label, sep, rest = line.partition(": ")
+            result.append((label.strip(), rest.strip()) if sep else ("", line))
+    return result
+
+
+class PlaceGuide(models.Model):
+    """A short public guide to a stop (a city or town): drafted by Claude from what's generally known about
+    the place (guides.py), checked and edited in the planner, and shown on the stop's page once published.
+    One per place, so a city visited on two trips shares its guide."""
+
+    place = models.OneToOneField(Place, on_delete=models.CASCADE, related_name="guide")
+    region = models.CharField(max_length=120, blank=True, help_text="Where it is, e.g. 'Yunnan · Diqing Tibetan Prefecture'.")
+    lede = models.CharField("in a sentence", max_length=300, blank=True)
+    facts = models.TextField(blank=True, help_text="One per line, e.g. 'Elevation: ≈ 3,300 m'.")
+    history = models.TextField(blank=True, help_text="A paragraph or two, with a blank line between paragraphs.")
+    decade = models.TextField("the last decade", blank=True, help_text="One per line, e.g. '2023: The railway arrives from Lijiang.'")
+    wonders = models.TextField("natural wonders", blank=True, help_text="One per line, e.g. 'Napa Lake: a seasonal wetland where cranes winter.'")
+    is_published = models.BooleanField(
+        "published", default=False, help_text="Shown on the stop's public page. Check the facts before publishing.")
+    drafted_at = models.DateTimeField(null=True, blank=True, editable=False)
+    drafted_by = models.CharField(max_length=60, blank=True, editable=False, help_text="The Claude model that drafted it.")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Guide to {self.place.name}"
+
+    @property
+    def fact_list(self):
+        return _pairs(self.facts)
+
+    @property
+    def decade_list(self):
+        return _pairs(self.decade)
+
+    @property
+    def wonder_list(self):
+        return _pairs(self.wonders)
+
+    @property
+    def paragraphs(self):
+        return [part.strip() for part in re.split(r"\n\s*\n", self.history or "") if part.strip()]
+
+    @property
+    def is_empty(self):
+        return not any((self.lede, self.facts, self.history, self.decade, self.wonders))
 
 
 class TripChange(models.Model):

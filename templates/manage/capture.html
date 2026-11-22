@@ -1,0 +1,59 @@
+{% extends "manage/base.html" %}
+{% load static %}
+
+{% block page_title %}Send to Trips{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <div class="stack" style="--stack: .2rem">
+    <p class="eyebrow">Planner</p>
+    <h1 style="font-size: var(--step-3)">Send to Trips</h1>
+  </div>
+  <a class="btn btn--small" href="{% url 'manage:dashboard' %}">← All trips</a>
+</div>
+
+<section class="card stack" data-capture hidden>
+  <h2 style="font-size: var(--step-1)">From your browser</h2>
+  <p><strong data-capture-title></strong><br><span class="small muted" data-capture-site></span></p>
+  <div class="form-grid">
+    <div class="field">
+      <label for="capture-trip">Trip</label>
+      <select id="capture-trip" class="input" data-capture-trip></select>
+    </div>
+    <div class="field">
+      <label for="capture-kind">Add it as</label>
+      <select id="capture-kind" class="input" data-capture-kind>
+        <option value="activity">An activity or sight</option>
+        <option value="stay">A stay</option>
+        <option value="leg">Transport: a bus, car, ferry or transfer</option>
+      </select>
+    </div>
+    <div class="field" data-capture-day-field>
+      <label for="capture-day">Day</label>
+      <select id="capture-day" class="input" data-capture-day></select>
+    </div>
+  </div>
+  <div class="cluster"><button type="button" class="btn btn--primary" data-capture-read>Read it and fill in the form</button></div>
+  <p class="small" data-capture-status aria-live="polite"></p>
+  <p class="small muted">{% if claude %}Claude reads the page's words; map positions, and anything it leaves out, come from the page's own data.{% else %}Read by the planner's own readers. Claude isn't set up yet: with an Anthropic API key in the server's settings, it reads pages and confirmations more accurately.{% endif %}</p>
+</section>
+
+<section class="card stack" style="--stack: var(--space-xs)" data-capture-setup>
+  <h2 style="font-size: var(--step-1)">Add Send to Trips to your browser</h2>
+  <p>Drag this button to your bookmarks bar: <a class="btn btn--primary" href="{{ bookmarklet }}" data-bookmarklet>Send to Trips</a></p>
+  <ol class="small stack" style="--stack: .3rem">
+    <li>Show the bookmarks bar: Ctrl/⌘ + Shift + B in Chrome and Edge, View → Show Favourites Bar in Safari, View → Toolbars → Bookmarks Toolbar in Firefox.</li>
+    <li>Drag the button onto it.</li>
+    <li>On a Trip.com, Klook, Viator, Booking.com or hotel page, click <strong>Send to Trips</strong>. A new tab opens here: pick the trip and day, and the form fills itself in.</li>
+  </ol>
+  <p class="small muted">On an iPhone or iPad: bookmark any page, <button type="button" class="btn btn--small" data-bookmarklet-copy>copy the button's code</button>, then edit the bookmark and paste the code over its address.</p>
+  <p class="small muted">It reads the page in your own browser, where sites such as Trip.com show it normally, though they turn the planner's server away. The page comes straight here and is only read when you press the button; nothing is sent anywhere else{% if claude %} except to Claude, to read it{% endif %}.</p>
+  <p class="small" data-capture-note aria-live="polite"></p>
+</section>
+{% endblock %}
+
+{% block manage_scripts %}
+{{ trips|json_script:"capture-trips" }}
+{{ urls|json_script:"capture-urls" }}
+<script src="{% static 'js/capture.js' %}"></script>
+{% endblock %}

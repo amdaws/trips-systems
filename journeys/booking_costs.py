@@ -11,7 +11,8 @@ linked BudgetItem), and its form has one Cost field (save_cost):
   (record).
 
 The budget's estimate is everything paid so far plus the estimates of plans that are
-still Planned (estimate_for). A booked plan counts what it cost.
+still Planned (estimate_for). A booked plan counts what it cost, or its estimate while what
+it cost isn't recorded (cost_unrecorded). Clearing a booked plan's Cost clears both.
 """
 
 import re
@@ -87,20 +88,30 @@ def plan_of(line):
 
 
 def estimate_for(line):
-    """(AUD amount this line adds to the budget's estimate, whether that's a planned plan's estimate).
-    A planned plan with an estimate counts that; everything else counts what was paid."""
+    """(AUD amount this line adds to the budget's estimate, whether that's the plan's estimate).
+    A planned plan with an estimate counts that. So does a booked one whose cost was never recorded
+    (a confirmation that didn't say what was paid, say): until it is, its estimate is the best
+    guess, rather than nothing. Everything else counts what was paid."""
     plan = plan_of(line)
-    if plan is not None and plan.status == BookingStatus.PLANNED and line.estimate is not None:
+    if plan is not None and line.estimate is not None and (plan.status == BookingStatus.PLANNED or line.actual is None):
         return line.estimate_aud or Decimal(0), True  # a missing exchange rate is flagged on the page
     return line.actual_aud or Decimal(0), False
+
+
+def cost_unrecorded(line):
+    """Whether a booked plan's line still waits for what it cost (it counts its estimate meanwhile)."""
+    plan = plan_of(line)
+    return plan is not None and plan.status == BookingStatus.BOOKED and line.actual is None
 
 
 def cost_shown(plan):
     """(amount, currency) the plan's Cost field shows: what it cost once booked, else its estimate
     (each falling back to the other); None if its budget line has neither."""
     line = budget_line(plan)
-    if line is None:
-        return None
+    return _shown(plan, line) if line is not None else None
+
+
+def _shown(plan, line):
     paid = (line.actual, line.actual_currency) if line.actual is not None else None
     estimate = (line.estimate, line.estimate_currency) if line.estimate is not None else None
     return (paid or estimate) if plan.status == BookingStatus.BOOKED else (estimate or paid)
@@ -122,10 +133,73 @@ def save_cost(plan, change, status_changed=False):
     if change is False and status_changed and line and line.actual is None and line.estimate is not None:
         record(plan, line.estimate, line.estimate_currency)  # just booked: the estimate it showed is what it cost
         return f"Booked: {line.estimate_currency} {line.estimate:,.2f} is now on the budget as what it cost."
-    if change is not False and line and line.actual is not None:  # cleared on a booked plan
-        line.actual = None
-        line.save()
+    if change is not False and line and (line.actual is not None or line.estimate is not None):
+        # Cleared on a booked plan: nothing of its cost is left (its old estimate would otherwise show again).
+        line.actual = line.estimate = None
+        if not line.paid_by_id and not line.notes:
+            line.delete()
+        else:
+            line.save()
     return ""
+
+
+# ---------- activities: a cost per person, times how many people ----------
+#
+# An activity's Cost is per person, with People beside it (starting at the number of travellers in the
+# trip's Settings). Its budget line holds the total, so the budget's sums are unchanged; the cost per
+# person is that total shared out. A confirmation records the total it shows.
+
+def default_people(trip, travellers=None):
+    """How many people an activity is for when it doesn't say: the trip's travellers (at least one)."""
+    return max(trip.travellers.count() if travellers is None else travellers, 1)
+
+
+def people_for(item, travellers=None):
+    return item.people or default_people(item.day.trip, travellers)
+
+
+def per_person(total, people):
+    return (Decimal(total) / max(people, 1)).quantize(Decimal("0.01"))
+
+
+def total_from_price(plan, price, per_person=True):
+    """A listing price for a plan, as the total its budget line holds: an activity's price is per person
+    (and its People is kept, so the split stays as it was priced) unless it's for the whole group
+    (`per_person=False`, a private car or package); a stay's or transport's is the price."""
+    if not isinstance(plan, Item) or not per_person:
+        return Decimal(price)
+    people = people_for(plan)
+    if plan.people != people:
+        plan.people = people
+        plan.save(update_fields=["people"])
+    return Decimal(price) * people
+
+
+def activity_cost(item, travellers=None):
+    """For the Activities page: {"total", "per_person", "people", "currency", "estimate"} from the
+    activity's budget line (already fetched with prefetch_related("budget_items")), or None."""
+    lines = sorted(item.budget_items.all(), key=lambda line: line.pk)
+    shown = _shown(item, lines[0]) if lines else None
+    if shown is None:
+        return None
+    people = people_for(item, travellers)
+    return {"total": shown[0], "currency": shown[1], "people": people, "per_person": per_person(shown[0], people),
+            "estimate": item.status == BookingStatus.PLANNED and lines[0].estimate is not None}
+
+
+def set_people(item, people, travellers=None):
+    """Change how many people an activity is for, keeping its cost per person: the totals on its budget
+    line (estimate and what it cost) are scaled to match."""
+    old = people_for(item, travellers)
+    line = budget_line(item)
+    if line and people != old:
+        for field in ("estimate", "actual"):
+            amount = getattr(line, field)
+            if amount is not None:
+                setattr(line, field, per_person(amount, old) * people)
+        line.save()
+    item.people = people
+    item.save(update_fields=["people"])
 
 
 def set_estimate(obj, amount, currency="AUD", site=""):

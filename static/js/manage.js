@@ -27,6 +27,19 @@
     });
   }
 
+  // 24-hour times (forms.Time24Field): "720", "7:20", "7.20" and "0720" become "07:20" on leaving the box,
+  // before the form's own change handlers see it (capture phase).
+  function time24(text) {
+    var m = String(text).trim().match(/^([01]?\d|2[0-3])[:.]?([0-5]\d)(?::[0-5]\d)?$/);
+    return m ? m[1].padStart(2, "0") + ":" + m[2] : null;
+  }
+  document.addEventListener("change", function (event) {
+    var input = event.target;
+    if (!input.matches || !input.matches("input[data-time-24]")) return;
+    var tidy = time24(input.value);
+    if (tidy) input.value = tidy;
+  }, true);
+
   function debounce(fn, ms) {
     var timer;
     return function () {
@@ -366,6 +379,8 @@
     picker.querySelector("[data-place-status]").textContent = "✓ " + place.kind_label;
   }
 
+  var LOCAL_LABELS = { name_local: "local name", address_local: "local address" };
+
   function setter(filled, labels) {
     return function (name, value, onlyIfEmpty) {
       var field = form.querySelector("[name=" + name + "]");
@@ -379,8 +394,12 @@
   // on the Budget page's estimate once saved), what it cost once it's Booked.
   function setCost(set, f) {
     if (!f.amount) return;
-    set("cost", f.amount);
+    var amount = f.amount, people = form.querySelector("[name=people]"), count = people ? parseInt(people.value, 10) : 0;
+    if (f.price_is_total && count > 1) amount = (parseFloat(f.amount) / count).toFixed(2);  // a group or car price, shared out
+    set("cost", amount);  // an activity's is per person: its Total updates to match
     set("cost_currency", f.currency);
+    var cost = form.querySelector("[name=cost]");
+    if (cost) cost.dispatchEvent(new Event("input", { bubbles: true }));
   }
   var COST_LABELS = { cost: "cost", cost_currency: "currency", opening_hours: "opening hours" };
 
@@ -402,9 +421,11 @@
   function fillStay(result) {
     var f = result.fields, filled = [];
     var set = setter(filled, Object.assign({ url: "link", check_in_time: "check-in time", check_out_time: "check-out time",
-                               check_in_date: "check-in date", check_out_date: "check-out date" }, COST_LABELS));
+                               check_in_date: "check-in date", check_out_date: "check-out date" }, LOCAL_LABELS, COST_LABELS));
     set("name", f.name);
     set("address", f.address);
+    set("name_local", f.name_local);
+    set("address_local", f.address_local);
     set("phone", f.phone);
     set("email", f.email);
     set("url", f.url);
@@ -424,9 +445,11 @@
 
   function fillActivity(result) {
     var f = result.fields, filled = [];
-    var set = setter(filled, COST_LABELS);
+    var set = setter(filled, Object.assign({}, LOCAL_LABELS, COST_LABELS));
     set("title", f.name);
     set("address", f.address);
+    set("name_local", f.name_local);
+    set("address_local", f.address_local);
     set("description", f.description, true);
     set("opening_hours", f.opening_hours);
     set("phone", f.phone);
@@ -476,6 +499,9 @@
       var body = fromLink ? { url: box.querySelector("input[type=url]").value.trim() } : { text: box.querySelector("textarea").value };
       var day = form.querySelector("[name=day]");
       if (day) body.day = day.value;
+      // An activity's title as typed: stands in when the site (Trip.com) won't show the page, or for pasted text.
+      var title = kind === "activity" ? form.querySelector("[name=title]") : null;
+      if (title && title.value.trim()) body.title = title.value.trim();
       if (!(body.url || body.text || "").trim()) { status.textContent = fromLink ? "Paste a link first." : "Paste the page text first."; return; }
       status.textContent = fromLink ? "Reading the page…" : "Reading the text…";
       fetch(box.dataset.url, {
@@ -490,12 +516,51 @@
             if (fromLink) box.querySelector("details").open = true;
           } else {
             markFromLink(body.url || "pasted page text");
-            status.textContent = (kind === "stay" ? fillStay(result) : kind === "leg" ? fillLeg(result) : fillActivity(result)) + missingNote(result);
+            status.textContent = fill(result);
+            if (result.note && fromLink) box.querySelector("details").open = true;  // the page text gives the rest
           }
         })
         .catch(function () { status.textContent = "Couldn't read that. Try pasting the page text instead."; });
     });
   });
+
+  function fill(result) {
+    return (kind === "stay" ? fillStay(result) : kind === "leg" ? fillLeg(result) : fillActivity(result)) + missingNote(result) +
+      (result.note ? " " + result.note : "") + (result.fields && result.fields.read_by === "claude" ? " (Read by Claude.)" : "");
+  }
+
+  // A page sent from the browser with Send to Trips (static/js/capture.js) opens a new plan's form: fill it in.
+  try {
+    var sent = JSON.parse(sessionStorage.getItem("trips-capture") || "null");
+    if (sent && sent.kind === kind && box.getAttribute("data-new") === "1" && Date.now() - sent.at < 10 * 60 * 1000) {
+      sessionStorage.removeItem("trips-capture");
+      var linkBox = box.querySelector("input[type=url]");
+      if (linkBox && sent.url) linkBox.value = sent.url;
+      markFromLink(sent.url || "a page sent from the browser");
+      status.textContent = "From your browser: " + fill(sent.result);
+    }
+  } catch (error) { /* storage blocked, or nothing sent: the form is as usual */ }
+})();
+
+/* An activity's form: Cost per person × People, shown as its Total as either is typed. */
+(function () {
+  "use strict";
+
+  var each = document.querySelector("[data-cost-each]");
+  var people = document.querySelector("[data-cost-people]");
+  var total = document.querySelector("[data-cost-total]");
+  if (!each || !people || !total) return;
+  var currency = each.form.querySelector("[name=cost_currency]");
+
+  function update() {
+    var amount = parseFloat(each.value), count = parseInt(people.value, 10) || parseInt(people.defaultValue, 10) || 1;
+    total.value = isNaN(amount) ? "" : (currency ? currency.value + " " : "") +
+      (amount * count).toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  [each, people, currency].forEach(function (input) {
+    if (input) { input.addEventListener("input", update); input.addEventListener("change", update); }
+  });
+  update();
 })();
 
 /* Activities, stays and budget lines: tick several to change them together (public or private, move to

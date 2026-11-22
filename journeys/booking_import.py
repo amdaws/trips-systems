@@ -82,13 +82,19 @@ def text_from_email(raw):
 
 
 def text_from_pdf(data):
+    """A PDF's text; for one with none to extract (a scan or photo), the words as Claude reads them."""
     from pypdf import PdfReader
 
     try:
         reader = PdfReader(io.BytesIO(data))
-        return clean_text("\n".join(page.extract_text() or "" for page in reader.pages[:20]))
+        text = clean_text("\n".join(page.extract_text() or "" for page in reader.pages[:20]))
     except Exception:
-        return ""
+        text = ""
+    if len(text) < 40:
+        from . import claude_read
+
+        text = clean_text(claude_read.pdf_text(data)) or text
+    return text
 
 
 def text_from_upload(upload):
@@ -142,6 +148,8 @@ def _amount(text):
             for match in re.finditer(re.escape(symbol) + r"\s?([\d,]+(?:\.\d{1,2})?)", line):
                 if re.search(r"-\s*$", line[: match.start()]):
                     continue  # a discount line ("- AU$72.30")
+                if not _positive(match[1]):
+                    continue  # "Amount due at hotel: CNY 0.00" after the total paid
                 best = (match[1].replace(",", ""), code)
                 break
             else:
@@ -171,7 +179,7 @@ def parse(text, trip=None, subject=""):
     """Booking details found in confirmation text, plus which trip legs it mentions."""
     text = redact(clean_text(text))
     lines = text.split("\n")
-    found = {"booking_ref": "", "name": "", "name_local": "", "address": "", "phone": "", "email": "",
+    found = {"booking_ref": "", "name": "", "name_local": "", "address": "", "address_local": "", "phone": "", "email": "",
              "check_in_date": None, "check_in_time": "", "check_out_date": None, "check_out_time": "",
              "nights": None, "room": "", "special_requests": "", "amount": None, "currency": "", "legs": []}
 
@@ -219,6 +227,9 @@ def parse(text, trip=None, subject=""):
         found["amount"], found["currency"] = amount
 
     _activity_details(found, text, lines, subject)
+    if found["amount"] is not None and not _positive(found["amount"]):
+        found["amount"], found["currency"] = None, ""  # "Amount due at hotel: 0.00" isn't what it cost
+    _claude_reads(found, text, subject)
 
     if trip:
         numbers = {leg.number.upper(): leg for leg in trip.legs.exclude(number="")}
@@ -226,6 +237,29 @@ def parse(text, trip=None, subject=""):
             if token in numbers:
                 found["legs"].append(numbers[token].pk)
     return found
+
+
+def _positive(amount):
+    try:
+        return float(str(amount).replace(",", "")) > 0
+    except ValueError:
+        return False
+
+
+def _claude_reads(found, text, subject):
+    """With an API key, Claude reads the confirmation too, and what it found wins: it tells a total paid
+    from an amount due later, 3 PM from 3 AM, and a drop-off from a "Total" line. The patterns' answers
+    stay for anything it left empty (and the trip's flight and train numbers are still matched here)."""
+    from . import claude_read
+
+    # The text alone (already without PINs), so the inbox's first look and the review share one read.
+    read = claude_read.for_confirmation(claude_read.read("confirmation", text))
+    if not read:
+        return
+    found.update(read)
+    found["read_by"] = "claude"
+    if found["kind"] != "stay":
+        found["name"] = found.get("title") or found["name"]
 
 
 def _labelled(text, labels, length=160):
@@ -305,12 +339,19 @@ def apply_to_activity(item, found, fields):
         item.title = found["title"][:200]
     if "meeting_point" in fields and found.get("meeting_point"):
         item.address = found["meeting_point"][:300]
+    for key, size in (("name_local", 200), ("address_local", 300)):
+        if key in fields and found.get(key):
+            setattr(item, key, found[key][:size])
     if "start_time" in fields and found.get("start_time"):
         hour, minute = found["start_time"].split(":")
         item.start_time = time(int(hour), int(minute))
     for line in _note_lines(found) if "booking_ref" in fields or not found.get("booking_ref") else []:
         if line not in item.private_notes:
             item.private_notes = (item.private_notes + "\n" + line).strip()
+    if "travellers" in fields and found.get("travellers"):  # "2 adults, 1 child": who the total paid was for
+        count = sum(int(n) for n in re.findall(r"\d+", found["travellers"]))
+        if 1 <= count <= 99:
+            item.people = count
     item.status = BookingStatus.BOOKED
     item.save()
     return item
@@ -377,6 +418,7 @@ def apply_to_stay(stay, found, fields):
     """Copy the chosen fields onto the stay (and mark it booked)."""
     mapping = {
         "booking_ref": "booking_ref", "name": "name", "address": "address", "phone": "phone", "email": "email",
+        "name_local": "name_local", "address_local": "address_local",
         "check_in_date": "check_in_date", "check_in_time": "check_in_time",
         "check_out_date": "check_out_date", "check_out_time": "check_out_time",
     }

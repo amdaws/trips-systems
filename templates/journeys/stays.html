@@ -22,6 +22,7 @@
           <h2 class="stay-card__title">{{ stay.label }}{% if stay.city and stay.city.name not in stay.label %} <span class="muted">· {{ stay.city.name }}</span>{% endif %}{% if stay.city.name_local %} <span class="local" lang="zh">{{ stay.city.name_local }}</span>{% endif %}</h2>
           {% endif %}
           <p class="small muted">Day {{ stay.first_day }}{% if stay.last_day != stay.first_day %}–{{ stay.last_day }}{% endif %}{% if full or not trip.hide_dates %} · {{ stay.check_in_date|date:"D j M" }} – {{ stay.check_out_date|date:"D j M" }}{% endif %} · {{ stay.nights }} night{{ stay.nights|pluralize }}</p>
+          {% if stay.guide_url %}<p class="small"><a href="{{ stay.guide_url }}">Guide to {{ stay.city.name }} →</a></p>{% endif %}
         </div>
         {% if full and not stay.is_public %}<span class="badge">Private</span>{% endif %}
       </div>

@@ -27,6 +27,19 @@
     });
   }
 
+  // 24-hour times (forms.Time24Field): "720", "7:20", "7.20" and "0720" become "07:20" on leaving the box,
+  // before the form's own change handlers see it (capture phase).
+  function time24(text) {
+    var m = String(text).trim().match(/^([01]?\d|2[0-3])[:.]?([0-5]\d)(?::[0-5]\d)?$/);
+    return m ? m[1].padStart(2, "0") + ":" + m[2] : null;
+  }
+  document.addEventListener("change", function (event) {
+    var input = event.target;
+    if (!input.matches || !input.matches("input[data-time-24]")) return;
+    var tidy = time24(input.value);
+    if (tidy) input.value = tidy;
+  }, true);
+
   function debounce(fn, ms) {
     var timer;
     return function () {

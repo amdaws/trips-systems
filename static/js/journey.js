@@ -422,19 +422,24 @@
     function describeWhen() {
       whenNow.setAttribute("aria-pressed", String(leavingNow));
       if (leavingNow) { whenHint.textContent = "Leaving now, with live times."; return; }
-      var hour = parseInt(whenTime.value.slice(0, 2), 10);
-      var time = (hour % 12 || 12) + ":" + whenTime.value.slice(3, 5) + (hour < 12 ? " am" : " pm");
-      whenHint.textContent = whenDate.value && whenTime.value ? "Leaving " + dayLabel(whenDate.value) + " at " + time + ", " + (state.city ? "local time." : "in the city's own time.") : "Choose a date and time.";
+      if (whenTime.value && !time24(whenTime.value)) { whenHint.textContent = "Type the time in 24-hour form, like 07:20 or 21:42."; return; }
+      whenHint.textContent = whenDate.value && whenTime.value ? "Leaving " + dayLabel(whenDate.value) + " at " + whenTime.value + ", " + (state.city ? "local time." : "in the city's own time.") : "Choose a date and time.";
     }
-    function leaving() { return !leavingNow && whenDate.value && whenTime.value ? whenDate.value + "T" + whenTime.value : ""; }
+    // 24-hour times: "720", "7:20", "7.20" and "0720" are all 07:20.
+    function time24(text) {
+      var m = String(text).trim().match(/^([01]?\d|2[0-3])[:.]?([0-5]\d)$/);
+      return m ? m[1].padStart(2, "0") + ":" + m[2] : null;
+    }
+    function leaving() { return !leavingNow && whenDate.value && time24(whenTime.value) ? whenDate.value + "T" + time24(whenTime.value) : ""; }
     fillNow();
     describeWhen();
     setInterval(function () { if (leavingNow) fillNow(); }, 30000);
     [whenDate, whenTime].forEach(function (input) {
       input.addEventListener("change", function () {
         leavingNow = false;
+        if (input === whenTime && time24(whenTime.value)) whenTime.value = time24(whenTime.value);
         describeWhen();
-        if (whenDate.value && whenTime.value) replanSoon(700);  // typing a date changes it a part at a time
+        if (whenDate.value && time24(whenTime.value)) replanSoon(700);  // typing a date changes it a part at a time
       });
     });
     whenNow.addEventListener("click", function () {

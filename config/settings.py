@@ -149,6 +149,7 @@ LANGUAGE_CODE = "en-au"
 TIME_ZONE = "Australia/Brisbane"
 USE_I18N = True
 USE_TZ = True
+FORMAT_MODULE_PATH = ["config.formats"]  # en-AU with a 24-hour clock (config/formats/en_AU)
 
 
 # Static files (served directly by Caddy in production)

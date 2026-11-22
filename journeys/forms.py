@@ -1,5 +1,8 @@
 """Forms for the planner dashboard."""
 
+import re
+from datetime import time
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import inlineformset_factory
@@ -7,7 +10,30 @@ from django.forms import inlineformset_factory
 from .models import CURRENCIES, BudgetItem, ChecklistItem, Day, Document, Item, Leg, Place, PlaceGuide, Stay, Traveller, Trip
 
 DATE = forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
-TIME = forms.TimeInput(attrs={"type": "time"}, format="%H:%M")
+# Times are typed and shown in 24-hour form (07:20, 21:42), whatever the browser's own clock style:
+# a browser's built-in time box follows the computer's locale, which shows am and pm in Australia.
+TIME = forms.TimeInput(format="%H:%M", attrs={
+    "data-time-24": "", "inputmode": "numeric", "placeholder": "HH:MM", "maxlength": "8", "autocomplete": "off",
+    "pattern": r"\s*([01]?[0-9]|2[0-3])[:.]?[0-5][0-9](:[0-5][0-9])?\s*", "title": "24-hour time, like 07:20 or 21:42"})
+TIME_24 = re.compile(r"([01]?\d|2[0-3])[:.]?([0-5]\d)(?::[0-5]\d)?")
+
+
+class Time24Field(forms.TimeField):
+    """A time in 24-hour form: 07:20, 7:20, 0720, 720 and 07.20 are all 07:20 (static/js/manage.js tidies them as
+    you type). There's no am or pm."""
+
+    widget = TIME
+    default_error_messages = {"invalid": "Use 24-hour time, like 07:20 or 21:42."}
+
+    def to_python(self, value):
+        if isinstance(value, str) and value.strip():
+            match = TIME_24.fullmatch(value.strip())
+            if not match:
+                raise ValidationError(self.error_messages["invalid"], code="invalid")
+            return time(int(match[1]), int(match[2]))
+        return super().to_python(value)
+
+
 ALLOWED_UPLOADS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".heic", ".gif", ".txt", ".csv", ".docx", ".xlsx"}
 MAX_UPLOAD_MB = 20
 
@@ -150,6 +176,7 @@ class ItemForm(BookingCostMixin, forms.ModelForm):
             "private_notes": forms.Textarea(attrs={"rows": 3}),
         }
         help_texts = {"block": "Used when there's no start time; a start time sets the block automatically."}
+        field_classes = {"start_time": Time24Field, "end_time": Time24Field}
 
     # The cost is per person: People beside it (starting at the trip's travellers) and the Total it
     # comes to, which is what goes on the budget (booking_costs: "activities").
@@ -206,6 +233,7 @@ class LegForm(BookingCostMixin, forms.ModelForm):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
         help_texts = {"arrive_date": "Leave empty if it arrives the same day."}
+        field_classes = {"depart_time": Time24Field, "arrive_time": Time24Field}
 
     def __init__(self, *args, trip, **kwargs):
         super().__init__(*args, **kwargs)
@@ -243,6 +271,7 @@ class StayForm(BookingCostMixin, forms.ModelForm):
         help_texts = {
             "nearest_metro": "Optional, e.g. 'Futian, Exit D'. Left empty, the station nearest the hotel is found from its address.",
         }
+        field_classes = {"check_in_time": Time24Field, "check_out_time": Time24Field}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

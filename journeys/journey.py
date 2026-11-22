@@ -486,7 +486,7 @@ def plan(origin, destination, when=None, rules=None):
     if not options:
         if too_far:
             raise PlanError(too_far.replace("Here's the drive instead.", "There's no drive between these places either."))
-        within = "in the next three hours" if when is None else f"in the three hours from {_time(midnight, now, zone):%-I:%M %p}".replace("AM", "am").replace("PM", "pm")
+        within = "in the next three hours" if when is None else f"in the three hours from {_time(midnight, now, zone):%H:%M}"
         raise PlanError(f"No {rules.words()} gets there {within}. Try somewhere nearer a station or stop, or tick more ways to travel.")
     for option in options:  # full times too, for a calendar entry
         option["leave_at"] = _time(midnight, option.pop("leave_secs"), zone).isoformat(timespec="minutes")

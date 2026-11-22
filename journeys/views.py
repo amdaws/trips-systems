@@ -11,7 +11,7 @@ from django.utils.cache import patch_cache_control
 
 from datetime import timedelta
 
-from . import changes, guides, ics, journey_views, live_flights, presenters, transit
+from . import changes, guides, ics, journey_views, live_flights, presenters, to_book, transit
 from .models import Item, Leg, PlaceGuide, Trip
 
 PUBLISHED = [Trip.Visibility.PUBLIC, Trip.Visibility.UNLISTED]
@@ -82,6 +82,8 @@ def trip_detail(request, slug=None, token=None):
     trip, full = _resolve(slug, token), _full(request, token)
     stops = presenters.stops(trip)
     rows, journeys = presenters.itinerary(trip, full=full, stop_list=stops)
+    if full:  # Booked or To book on flights and trains, never for visitors
+        to_book.mark(journeys, trip, modes=(Leg.Mode.FLIGHT, Leg.Mode.TRAIN))
     return _page(
         request, trip, token, full, "journeys/trip.html", "itinerary", stops=stops,
         rows=rows, journeys=journeys, travel_days=sum(1 for row in rows if not row["band"]), countdown=presenters.countdown(trip, full),

@@ -504,3 +504,11 @@ items = [
   { category = "new", area = "Planner", text = "Taxi cards: each stay's and activity's name and address in Chinese, big enough to show a driver. Claude copies them from booking pages and confirmations, never translating them." },
   { category = "improved", area = "Site", text = "The privacy policy now covers Claude reviewing trip plans and drafting stop guides." },
 ]
+
+[[release]]
+at = 2026-11-22T10:58:00+10:00
+title = "Booked and still to book"
+items = [
+  { category = "new", area = "Planner", text = "The Transport page counts what's booked and what's still to book, by flights, trains and the rest, with when each train's tickets go on sale. It can show just what's still to book, or just what's booked." },
+  { category = "improved", area = "Itinerary", text = "Flights and trains on the trip page say whether they're booked yet, and when a train's tickets go on sale. Only you and people with the secret link see this." },
+]

@@ -1,0 +1,2 @@
+{# Booked or To book on a flight or train on the trip page, for the owner and the secret link only (to_book.mark). #}
+{% if leg.booking.booked %}<span class="badge badge--green"><span aria-hidden="true">✓</span> Booked</span>{% else %}<span class="badge badge--amber">To book</span>{% endif %}

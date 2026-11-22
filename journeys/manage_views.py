@@ -26,7 +26,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
-from . import activity_import, booking_costs, booking_import, changes, claude_read, guides, link_details, trip_check, china_coords, flights, geocode, leg_import, metro, money, nights, presenters, routing, site_links, stay_import, transit
+from . import activity_import, booking_costs, booking_import, changes, claude_read, guides, link_details, to_book, trip_check, china_coords, flights, geocode, leg_import, metro, money, nights, presenters, routing, site_links, stay_import, transit
 from .forms import (
     BookingImportForm,
     ConfirmationForm,
@@ -564,11 +564,16 @@ _find_place = link_details.find_place  # the booking imports place pick-ups and 
 
 @staff_required
 def legs(request, pk):
+    """Transport: every leg, or with ?show=to-book or ?show=booked only those (to_book.py), under a
+    count of what's booked and what's still to book."""
     trip = _trip(pk)
-    legs = presenters.legs_for(trip)
+    legs = to_book.mark(presenters.legs_for(trip), trip)
+    counts = to_book.summary(legs)
+    show = request.GET.get("show") if request.GET.get("show") in to_book.SHOW else "all"
+    legs = to_book.only(legs, show)
     for leg in legs:
         leg.missing = booking_costs.missing_details(leg)
-    return render(request, "manage/legs.html", _context(trip, "transport", legs=legs))
+    return render(request, "manage/legs.html", _context(trip, "transport", legs=legs, counts=counts, show=show))
 
 
 @staff_required

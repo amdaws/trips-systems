@@ -68,7 +68,7 @@
               <span class="journey-card__time"{% if leg.rough %} title="About {{ leg.shown_depart }}"{% endif %}>{% if leg.shown_depart %}{% if leg.rough %}~{% endif %}{{ leg.shown_depart }}{% else %}—{% endif %}</span>
               <span class="journey-card__body">
                 <span class="mode mode--{{ leg.mode_class }}">{{ leg.mode_label }}{% if leg.shown_number %} · {{ leg.shown_number }}{% endif %}</span>
-                <span class="journey-card__route">{% if leg.same_city %}{{ leg.origin.city_name }}{% else %}{{ leg.origin.city_name }} → {{ leg.destination.city_name }}{% endif %}{% if full and not leg.is_public %} <span class="badge">Private</span>{% endif %}</span>
+                <span class="journey-card__route">{% if leg.same_city %}{{ leg.origin.city_name }}{% else %}{{ leg.origin.city_name }} → {{ leg.destination.city_name }}{% endif %}{% if full and not leg.is_public %} <span class="badge">Private</span>{% endif %}{% if full and leg.booking %} {% include "journeys/_booked_badge.html" %}{% endif %}</span>
                 {% if leg.operator or leg.shown_duration %}<span class="journey-card__meta">{{ leg.operator }}{% if leg.operator and leg.shown_duration %} · {% endif %}{% if leg.shown_duration %}{% if leg.rough %}about {% endif %}{{ leg.shown_duration }}{% endif %}</span>{% endif %}
                 {% if leg.moves %}<span class="journey-card__moves">{{ leg.moves }}</span>{% endif %}
                 {% if leg.mode == "flight" %}<span class="journey-card__live" data-live-card="{{ leg.pk }}" hidden></span>{% endif %}

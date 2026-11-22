@@ -23,7 +23,7 @@ Django 6.1 journey planner for Aaron Daws Trips.
   is read once, kept in `ClaudeRead`; `TRIPS_CLAUDE_MODEL` picks the model). Claude also copies each stay's and activity's local name and address (Chinese characters) for the **Taxi cards** page, reviews the plan on the **Check** tab alongside exact checks (`journeys/trip_check.py`), and drafts the **stop guides** shown on public stop pages once checked and published (`journeys/guides.py`, `PlaceGuide`). Planned / Booked status (ideas were merged into
   Planned on 15 Nov 2026); Add confirmation on planned ones, and View confirmation on booked ones whose confirmation was imported by link or uploaded file (kept as a trip document); a planned one with a link has its details read from it when saved (`journeys/link_details.py`; Refresh details tries again); each
   records how it was added (booking link, import or by hand), and one filled in from a booking link
-  flags details the page didn't give (`booking_costs.missing_details`). Also checklists with automatic train
+  flags details the page didn't give (`booking_costs.missing_details`). The **Transport** tab counts what's booked and what's still to book (with when each train's tickets go on sale) and can show only either; the trip page marks flights and trains Booked or To book for the owner and the secret link, never visitors (`journeys/to_book.py`). Also checklists with automatic train
   ticket reminders, private document uploads, calendar feeds and print views.
 
 ## How it runs

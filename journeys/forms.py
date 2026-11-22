@@ -4,7 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import inlineformset_factory
 
-from .models import CURRENCIES, BudgetItem, ChecklistItem, Day, Document, Item, Leg, Place, Stay, Traveller, Trip
+from .models import CURRENCIES, BudgetItem, ChecklistItem, Day, Document, Item, Leg, Place, PlaceGuide, Stay, Traveller, Trip
 
 DATE = forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
 TIME = forms.TimeInput(attrs={"type": "time"}, format="%H:%M")
@@ -140,7 +140,8 @@ class ItemForm(BookingCostMixin, forms.ModelForm):
 
     class Meta:
         model = Item
-        fields = ["day", "title", "block", "start_time", "end_time", "place", "address", "opening_hours", "phone", "email", "description",
+        fields = ["day", "title", "block", "start_time", "end_time", "place", "address", "name_local", "address_local", "opening_hours",
+                  "phone", "email", "description",
                   "links", "people", "status", "private_notes", "is_public"]
         widgets = {
             "start_time": TIME, "end_time": TIME,
@@ -231,12 +232,13 @@ class StayForm(BookingCostMixin, forms.ModelForm):
     class Meta:
         model = Stay
         fields = [
-            "label", "kind", "name", "city", "location", "address", "check_in_date", "check_in_time",
+            "label", "kind", "name", "city", "location", "address", "name_local", "address_local", "check_in_date", "check_in_time",
             "check_out_date", "check_out_time", "status", "booking_ref", "nearest_metro", "url", "phone", "email", "notes", "is_public",
         ]
         widgets = {
             "check_in_date": DATE, "check_out_date": DATE, "check_in_time": TIME, "check_out_time": TIME,
-            "address": forms.Textarea(attrs={"rows": 2}), "notes": forms.Textarea(attrs={"rows": 3}),
+            "address": forms.Textarea(attrs={"rows": 2}), "address_local": forms.Textarea(attrs={"rows": 2, "lang": "zh"}),
+            "name_local": forms.TextInput(attrs={"lang": "zh"}), "notes": forms.Textarea(attrs={"rows": 3}),
         }
         help_texts = {
             "nearest_metro": "Optional, e.g. 'Futian, Exit D'. Left empty, the station nearest the hotel is found from its address.",
@@ -333,6 +335,19 @@ class ConfirmationForm(forms.Form):
         elif upload and upload.size > 10 * 1024 * 1024:
             self.add_error("file", "Files can be at most 10 MB.")
         return cleaned
+
+
+class PlaceGuideForm(forms.ModelForm):
+    class Meta:
+        model = PlaceGuide
+        fields = ["region", "lede", "facts", "history", "decade", "wonders", "is_published"]
+        widgets = {
+            "lede": forms.Textarea(attrs={"rows": 2}),
+            "facts": forms.Textarea(attrs={"rows": 5}),
+            "history": forms.Textarea(attrs={"rows": 8}),
+            "decade": forms.Textarea(attrs={"rows": 4}),
+            "wonders": forms.Textarea(attrs={"rows": 5}),
+        }
 
 
 class DocumentForm(forms.ModelForm):

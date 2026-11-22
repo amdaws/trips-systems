@@ -43,6 +43,8 @@ PRICE = {
 PLACE = {
     "name": (S, "The place's, property's or product's name, in English where the page gives one"),
     "address": (S, "Its street address"),
+    "name_local": (S, "The name in the local script (Chinese characters for a place in China), exactly as the text writes it; '' if the text doesn't give it. Never translate it or make one up"),
+    "address_local": (S, "The street address in the local script (Chinese characters for a place in China), exactly as the text writes it; '' if the text doesn't give it. Never translate it"),
     "city": (S, "The city it's in"),
     "phone": (S, "A phone number for it"),
     "email": (S, "An email address for it"),
@@ -67,8 +69,11 @@ SCHEMAS = {
         "kind": (["stay", "activity", "transfer"], "A hotel or other stay, an activity, tour or ticket, or a transfer, car or bus"),
         "booking_ref": (S, "The booking, confirmation or order number"),
         "name": (S, "For a stay, the property's name; otherwise what was booked"),
-        "name_local": (S, "The property's name in Chinese or the local language, if the text gives it"),
+        "name_local": (S, "The property's or venue's name in the local script (Chinese characters for a place in China), "
+                          "exactly as the text writes it; '' if the text doesn't give it. Never translate it"),
         "address": (S, "The property's or venue's address"),
+        "address_local": (S, "The property's or venue's address in the local script, exactly as the text writes it; '' if the "
+                             "text doesn't give it. Never translate it"),
         "phone": (S, "The property's or operator's phone number"),
         "email": (S, "The property's or operator's email address"),
         "check_in_date": (S, "Check-in date, YYYY-MM-DD"),
@@ -92,6 +97,7 @@ SCHEMAS = {
     },
 }
 TIME = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
+LOCAL_SCRIPT = re.compile(r"[^\x00-\u024f]")  # beyond Latin letters: Chinese, Japanese, Korean, Thai…
 
 
 def enabled():
@@ -112,13 +118,17 @@ def _client(timeout=TIMEOUT):
     return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY, timeout=timeout, max_retries=0)
 
 
-def _ask(content, output_format=None, max_tokens=4000, timeout=TIMEOUT):
-    """Claude's answer as text, or None when it declined or ran out of room."""
+def _ask(content, output_format=None, max_tokens=4000, timeout=TIMEOUT, system=SYSTEM, think=True):
+    """Claude's answer as text, or None when it declined or ran out of room. think=False turns Haiku's
+    thinking off: a whole trip's review thinks for 30 seconds or more otherwise, past the request's time
+    (the other models can't turn it off, and keep it at low effort)."""
     model = settings.CLAUDE_MODEL
-    params = {"model": model, "max_tokens": max_tokens, "system": SYSTEM, "messages": [{"role": "user", "content": content}],
+    params = {"model": model, "max_tokens": max_tokens, "system": system, "messages": [{"role": "user", "content": content}],
               "output_config": {"effort": "low", **({"format": output_format} if output_format else {})}}
     if not model.startswith("claude-haiku"):  # Haiku has no server-side fallback; the others retry a decline on another model
         params.update(betas=["server-side-fallback-2026-07-01"], fallbacks="default")
+    elif not think:
+        params["thinking"] = {"type": "disabled"}
     response = _client(timeout).beta.messages.create(**params)
     if response.stop_reason in ("refusal", "max_tokens"):
         log.warning("Claude didn't finish reading (%s)", response.stop_reason)
@@ -126,11 +136,11 @@ def _ask(content, output_format=None, max_tokens=4000, timeout=TIMEOUT):
     return next((block.text for block in response.content if block.type == "text"), None)
 
 
-def _cached(kind, text, read):
+def _cached(kind, text, read, reuse=True):
     from .models import ClaudeRead
 
     key = hashlib.sha256(f"{kind}|{settings.CLAUDE_MODEL}|{text}".encode()).hexdigest()
-    found = ClaudeRead.objects.filter(key=key).first()
+    found = ClaudeRead.objects.filter(key=key).first() if reuse else None
     if found:
         return found.fields
     try:
@@ -140,8 +150,23 @@ def _cached(kind, text, read):
         return {}
     if fields is None:
         return {}
-    ClaudeRead.objects.get_or_create(key=key, defaults={"kind": kind, "fields": fields})
+    ClaudeRead.objects.update_or_create(key=key, defaults={"kind": kind, "fields": fields})
     return fields
+
+
+def answer(kind, schema_, content, system, reuse=True, max_tokens=8000):
+    """Claude's answer, as a dict in the shape of `schema_`, for a task of the planner's own (a trip
+    check, a stop guide), with its own `system` prompt. Kept like the reads, so the same question isn't
+    paid for twice; reuse=False asks again (Draft again). {} without a key, an answer or in time."""
+    if not enabled():
+        return {}
+
+    def ask():
+        text = _ask(content, {"type": "json_schema", "schema": schema_}, max_tokens=max_tokens, system=system, think=False)
+        found = json.loads(text) if text else None
+        return found if isinstance(found, dict) else None
+
+    return _cached(kind, content, ask, reuse=reuse)
 
 
 def read(kind, text, hint="", timeout=TIMEOUT):
@@ -226,6 +251,8 @@ def clean(kind, answer):
             value = value.upper()
             if value not in KNOWN:
                 continue
+        elif name.endswith("_local") and not LOCAL_SCRIPT.search(value):
+            continue  # the English name again, or a transliteration: not what a taxi driver reads
         fields[name] = value[:500]
     if ("price" in fields or "amount_paid" in fields) and "currency" not in fields:
         fields.pop("price", None), fields.pop("amount_paid", None)  # an amount in an unknown currency isn't a cost

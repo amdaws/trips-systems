@@ -366,6 +366,8 @@
     picker.querySelector("[data-place-status]").textContent = "✓ " + place.kind_label;
   }
 
+  var LOCAL_LABELS = { name_local: "local name", address_local: "local address" };
+
   function setter(filled, labels) {
     return function (name, value, onlyIfEmpty) {
       var field = form.querySelector("[name=" + name + "]");
@@ -406,9 +408,11 @@
   function fillStay(result) {
     var f = result.fields, filled = [];
     var set = setter(filled, Object.assign({ url: "link", check_in_time: "check-in time", check_out_time: "check-out time",
-                               check_in_date: "check-in date", check_out_date: "check-out date" }, COST_LABELS));
+                               check_in_date: "check-in date", check_out_date: "check-out date" }, LOCAL_LABELS, COST_LABELS));
     set("name", f.name);
     set("address", f.address);
+    set("name_local", f.name_local);
+    set("address_local", f.address_local);
     set("phone", f.phone);
     set("email", f.email);
     set("url", f.url);
@@ -428,9 +432,11 @@
 
   function fillActivity(result) {
     var f = result.fields, filled = [];
-    var set = setter(filled, COST_LABELS);
+    var set = setter(filled, Object.assign({}, LOCAL_LABELS, COST_LABELS));
     set("title", f.name);
     set("address", f.address);
+    set("name_local", f.name_local);
+    set("address_local", f.address_local);
     set("description", f.description, true);
     set("opening_hours", f.opening_hours);
     set("phone", f.phone);

@@ -1,0 +1,45 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Taxi cards · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>Taxi cards</h2>
+  <div class="btn-row">
+    <a class="btn" href="{% url 'manage:stays' trip.pk %}">Stays</a>
+    <a class="btn" href="{% url 'manage:activities' trip.pk %}">Activities</a>
+  </div>
+</div>
+<p class="small muted">Each place's name and address as they're written locally, big enough to show a driver. Open this page on your phone when you need it, or print it. Only you can see it.</p>
+
+{% if cards %}
+<ol class="taxi-cards">
+  {% for card in cards %}
+  <li class="taxi-card">
+    <p class="taxi-card__when small muted">{% if card.is_stay %}Stay{% else %}Activity{% endif %} · {{ card.when }}</p>
+    {% if card.plan.name_local %}<p class="taxi-card__name" lang="zh">{{ card.plan.name_local }}</p>{% endif %}
+    {% if card.plan.address_local %}<p class="taxi-card__address" lang="zh">{{ card.plan.address_local|linebreaksbr }}</p>{% endif %}
+    <p class="taxi-card__english">{{ card.name }}{% if card.plan.address %}<br><span class="small muted">{{ card.plan.address }}</span>{% endif %}</p>
+    <p class="taxi-card__links small">
+      {% if card.plan.phone %}<a href="tel:{{ card.plan.phone }}">Call {{ card.plan.phone }}</a>{% endif %}
+      <a class="no-print" href="{{ card.edit }}">Edit</a>
+    </p>
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="card muted">No stay or activity has its local name or address yet.</p>
+{% endif %}
+
+{% if without %}
+<details class="card stack no-print">
+  <summary><strong>No local name or address yet ({{ without|length }})</strong></summary>
+  <p class="small muted">Refresh details on a planned one with a link, add its confirmation, use Send to Trips on its page, or type the name and address in yourself. Claude copies them from the page or confirmation; it never translates them.</p>
+  <ul class="list-plain">
+    {% for card in without %}
+    <li class="row-item"><span>{{ card.name }} <span class="small muted">· {% if card.is_stay %}Stay{% else %}Activity{% endif %} · {{ card.when }}</span></span><a class="btn btn--small" href="{{ card.edit }}">Edit</a></li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}

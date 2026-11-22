@@ -1,0 +1,40 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Guides · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>Stop guides</h2>
+</div>
+<p class="small muted">A short guide to each overnight stop for the trip's public pages: where it is, a few facts, a little history, the last decade and the natural wonders nearby. {% if claude %}Claude drafts one from what's generally known about the place, from its name and position only.{% endif %} Drafts stay private until you've checked them and published them. A guide belongs to the city, so another trip there shares it.</p>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead><tr><th scope="col">Stop</th><th scope="col">Nights</th><th scope="col">Guide</th><th scope="col" class="num"><span class="visually-hidden">Actions</span></th></tr></thead>
+    <tbody>
+      {% for stop in stops %}
+      <tr>
+        <td><strong>{{ stop.name }}</strong>{% if stop.local %} <span class="muted">{{ stop.local }}</span>{% endif %}</td>
+        <td class="small">{{ stop.nights }} · {{ stop.first|date:"j M" }}</td>
+        <td>
+          {% if not stop.guide or stop.guide.is_empty %}<span class="muted small">None yet</span>
+          {% elif stop.guide.is_published %}<span class="badge badge--green">Published</span>
+          {% else %}<span class="badge badge--amber">Draft</span>{% endif %}
+        </td>
+        <td class="num">
+          <span class="cluster" style="justify-content: flex-end">
+            {% if stop.guide and not stop.guide.is_empty and stop.public_url %}<a class="btn btn--small" href="{{ stop.public_url }}" target="_blank" rel="noopener">View</a>{% endif %}
+            {% if claude and not stop.guide %}
+            <form method="post" action="{% url 'manage:guide_draft' trip.pk stop.place.pk %}">{% csrf_token %}<button class="btn btn--small btn--primary" type="submit">Draft with Claude</button></form>
+            {% endif %}
+            <a class="btn btn--small" href="{% url 'manage:guide_edit' trip.pk stop.place.pk %}">{% if stop.guide %}Edit{% else %}Write{% endif %}</a>
+          </span>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="muted small">No overnight stops yet: add stays with their city to get them.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

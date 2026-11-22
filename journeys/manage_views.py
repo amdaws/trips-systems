@@ -26,7 +26,7 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.views.decorators.http import require_GET, require_POST
 
-from . import activity_import, booking_costs, booking_import, changes, claude_read, link_details, china_coords, flights, geocode, leg_import, metro, money, nights, presenters, routing, site_links, stay_import, transit
+from . import activity_import, booking_costs, booking_import, changes, claude_read, guides, link_details, trip_check, china_coords, flights, geocode, leg_import, metro, money, nights, presenters, routing, site_links, stay_import, transit
 from .forms import (
     BookingImportForm,
     ConfirmationForm,
@@ -36,11 +36,12 @@ from .forms import (
     DocumentForm,
     ItemForm,
     LegForm,
+    PlaceGuideForm,
     StayForm,
     TravellerFormSet,
     TripForm,
 )
-from .models import AddedFrom, Airline, BookingImport, BookingStatus, BudgetItem, ChecklistItem, Day, Document, ExchangeRate, Item, Leg, Place, Stay, Trip, normalise
+from .models import AddedFrom, Airline, BookingImport, BookingStatus, BudgetItem, ChecklistItem, Day, Document, ExchangeRate, Item, Leg, Place, PlaceGuide, Stay, Trip, normalise
 from .search import MODE_KINDS, find_places, match_airport, match_station, parse_leg, place_json
 
 staff_required = user_passes_test(lambda u: u.is_active and u.is_staff, login_url="manage:login")
@@ -461,7 +462,7 @@ def _import_review_other(request, record, trips, trip, found, kind):
                         messages.error(request, "The booking's date isn't one of this trip's days, so a new activity can't be added. Add it under Activities instead.")
                         return redirect("manage:import_review", record.pk)
                     chosen = Item(day=day, title=(found["title"] or found["name"] or "Booked activity")[:200], added_from=AddedFrom.IMPORT)
-                    fields |= {"title", "meeting_point", "start_time"}
+                    fields |= {"title", "meeting_point", "start_time", "name_local", "address_local"}
                 elif choice.isdigit():
                     chosen = get_object_or_404(Item, pk=choice, day__trip=trip)
                 if chosen:
@@ -918,20 +919,22 @@ def document_delete(request, pk, doc_pk):
 # ---------- booking confirmations ----------
 
 IMPORT_FIELDS = [
-    ("booking_ref", "Booking number"), ("name", "Property"), ("address", "Address"), ("phone", "Phone"), ("email", "Email"),
+    ("booking_ref", "Booking number"), ("name", "Property"), ("address", "Address"), ("name_local", "Local name"),
+    ("address_local", "Local address"), ("phone", "Phone"), ("email", "Email"),
     ("check_in_date", "Check-in date"), ("check_in_time", "Check-in time"), ("check_out_date", "Check-out date"),
     ("check_out_time", "Check-out time"), ("room", "Room"), ("special_requests", "Special requests"),
 ]
 ACTIVITY_FIELDS = [
     ("booking_ref", "Booking number"), ("title", "Activity"), ("activity_date", "Date"), ("start_time", "Start time"),
-    ("meeting_point", "Meeting point"), ("travellers", "Travellers"),
+    ("meeting_point", "Meeting point"), ("name_local", "Local name"), ("address_local", "Local address"), ("travellers", "Travellers"),
 ]
 TRANSFER_FIELDS = [
     ("booking_ref", "Booking number"), ("title", "Service"), ("activity_date", "Pick-up date"), ("start_time", "Pick-up time"),
     ("pickup", "Pick-up"), ("dropoff", "Drop-off"), ("travellers", "Travellers"),
 ]
 CURRENT = {  # what each detail is called on the activity or leg it's added to
-    "activity": {"title": "title", "meeting_point": "address", "start_time": "start_time"},
+    "activity": {"title": "title", "meeting_point": "address", "start_time": "start_time", "name_local": "name_local",
+                 "address_local": "address_local"},
     "transfer": {"booking_ref": "booking_ref", "start_time": "depart_time", "activity_date": "depart_date"},
 }
 
@@ -1262,3 +1265,106 @@ def api_parse_leg(request):
     except (TypeError, ValueError):
         depart = None
     return JsonResponse(parse_leg(str(data.get("text", ""))[:300], trip=trip, depart_date=depart))
+
+
+# ---------- taxi cards, the trip check and stop guides ----------
+
+
+@staff_required
+def taxi_cards(request, pk):
+    """Each stay's and activity's name and address as written locally, big enough to show a driver.
+    Private: hotels' names and addresses never reach visitors."""
+    trip = _trip(pk)
+    stays = list(trip.stays.select_related("city").order_by("check_in_date", "id"))
+    items = list(Item.objects.filter(day__trip=trip).select_related("day").order_by("day__date", "start_time", "id"))
+    cards, without = [], []
+    for plan in stays + items:
+        is_stay = isinstance(plan, Stay)
+        entry = {
+            "plan": plan, "is_stay": is_stay, "name": (plan.name or plan.label) if is_stay else plan.title,
+            "when": (f"{plan.check_in_date:%a} {plan.check_in_date.day} – {plan.check_out_date:%a} {plan.check_out_date.day} {plan.check_out_date:%b}"
+                     if is_stay else f"{plan.day.date:%a} {plan.day.date.day} {plan.day.date:%b}"),
+            "edit": reverse("manage:stay_edit" if is_stay else "manage:item_edit", args=[trip.pk, plan.pk]),
+        }
+        (cards if plan.name_local or plan.address_local else without).append(entry)
+    return render(request, "manage/taxi_cards.html", _context(trip, "stays", cards=cards, without=without))
+
+
+@staff_required
+def trip_check_page(request, pk):
+    """The trip check: the rules' findings (always fresh) and Claude's last review, run again on request."""
+    trip = _trip(pk)
+    if request.method == "POST":
+        if not claude_read.enabled():
+            messages.error(request, "Claude isn't set up on this site, so only the checks below ran.")
+        elif trip_check.review(trip):
+            messages.success(request, "Claude has reviewed the plan.")
+        else:
+            messages.error(request, "Claude didn't answer in time. Try again in a minute.")
+        return redirect("manage:check", trip.pk)
+    review = getattr(trip, "claude_check", None)
+    context = _context(
+        trip, "check", findings=trip_check.with_dates(trip_check.rules(trip)), review=review,
+        review_findings=trip_check.with_dates(list(review.findings)) if review else [],
+        review_stale=bool(review) and review.plan_key != trip_check.plan_key(trip_check.plan_text(trip)),
+        claude=claude_read.enabled(),
+    )
+    return render(request, "manage/check.html", context)
+
+
+def _stop_places(trip):
+    """The trip's overnight stops that are places (cities), each with its guide (or None)."""
+    stops = [stop for stop in presenters.stops(trip) if stop["place"]]
+    found = {guide.place_id: guide for guide in PlaceGuide.objects.filter(place__in=[stop["place"] for stop in stops])}
+    for stop in stops:
+        stop["guide"] = found.get(stop["place"].pk)
+    return stops
+
+
+@staff_required
+def guides_page(request, pk):
+    trip = _trip(pk)
+    public = trip.get_public_url()
+    stops = _stop_places(trip)
+    for stop in stops:
+        stop["public_url"] = reverse("journeys:stop", args=[trip.slug, stop["place"].pk]) if trip.visibility == Trip.Visibility.PUBLIC else (
+            reverse("journeys:shared_stop", args=[trip.share_token, stop["place"].pk]) if public else "")
+    return render(request, "manage/guides.html", _context(trip, "guides", stops=stops, claude=claude_read.enabled()))
+
+
+def _trip_stop(trip, place_pk):
+    for stop in _stop_places(trip):
+        if stop["place"].pk == place_pk:
+            return stop
+    raise Http404
+
+
+@staff_required
+@require_POST
+def guide_draft(request, pk, place_pk):
+    """Draft with Claude (or Draft again): the guide is saved unpublished, for checking."""
+    trip = _trip(pk)
+    stop = _trip_stop(trip, place_pk)
+    if not claude_read.enabled():
+        messages.error(request, "Claude isn't set up on this site, so guides have to be written by hand.")
+        return redirect("manage:guide_edit", trip.pk, place_pk)
+    guide = guides.draft(stop["place"], when=stop["first"], again=bool(stop["guide"]))
+    if guide:
+        messages.success(request, f"Claude drafted the guide to {stop['name']}. Check the facts, change anything that's off, then publish it.")
+    else:
+        messages.error(request, "Claude didn't answer in time. Try again in a minute.")
+    return redirect("manage:guide_edit", trip.pk, place_pk)
+
+
+@staff_required
+def guide_edit(request, pk, place_pk):
+    trip = _trip(pk)
+    stop = _trip_stop(trip, place_pk)
+    guide = stop["guide"] or PlaceGuide(place=stop["place"])
+    form = PlaceGuideForm(request.POST or None, instance=guide)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, f"Saved the guide to {stop['name']}" + (" (published)." if form.instance.is_published else " as a draft."))
+        return redirect("manage:guides", trip.pk)
+    return render(request, "manage/guide_form.html", _context(
+        trip, "guides", form=form, stop=stop, guide=guide, claude=claude_read.enabled(), pinyin=guides.pinyin(stop["place"])))

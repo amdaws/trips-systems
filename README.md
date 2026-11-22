@@ -20,7 +20,7 @@ Django 6.1 journey planner for Aaron Daws Trips.
   blocked sites can still be read. With `ANTHROPIC_API_KEY` set, Claude also reads pages fetched from a link (in what's
   left of its 25 seconds; never a robot check), pasted text, sent pages,
   confirmations and scanned PDFs, and its answers win over the pattern readers' (`journeys/claude_read.py`; each text
-  is read once, kept in `ClaudeRead`; `TRIPS_CLAUDE_MODEL` picks the model). Planned / Booked status (ideas were merged into
+  is read once, kept in `ClaudeRead`; `TRIPS_CLAUDE_MODEL` picks the model). Claude also copies each stay's and activity's local name and address (Chinese characters) for the **Taxi cards** page, reviews the plan on the **Check** tab alongside exact checks (`journeys/trip_check.py`), and drafts the **stop guides** shown on public stop pages once checked and published (`journeys/guides.py`, `PlaceGuide`). Planned / Booked status (ideas were merged into
   Planned on 15 Nov 2026); Add confirmation on planned ones, and View confirmation on booked ones whose confirmation was imported by link or uploaded file (kept as a trip document); a planned one with a link has its details read from it when saved (`journeys/link_details.py`; Refresh details tries again); each
   records how it was added (booking link, import or by hand), and one filled in from a booking link
   flags details the page didn't give (`booking_costs.missing_details`). Also checklists with automatic train

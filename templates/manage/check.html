@@ -1,0 +1,30 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Check · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<div class="toolbar">
+  <h2>Trip check</h2>
+  <form method="post">{% csrf_token %}
+    <button class="btn btn--primary" type="submit"{% if not claude %} disabled title="Claude isn't set up on this site"{% endif %}>{% if review %}Ask Claude again{% else %}Ask Claude to review the plan{% endif %}</button>
+  </form>
+</div>
+
+<section class="card stack">
+  <h3>Checks</h3>
+  <p class="small muted">Worked out from the plan each time this page opens: somewhere to stay every night, time to make each connection, nothing booked at the same time, train tickets on sale, and plans still missing details.</p>
+  {% include "manage/_findings.html" with findings=findings empty="Nothing to fix." %}
+</section>
+
+<section class="card stack">
+  <h3>Claude's review</h3>
+  {% if review %}
+  <p class="small muted">Read the whole plan on {{ review.checked_at|date:"D j M" }} at {{ review.checked_at|date:"H:i" }}{% if review_stale %} · <strong>the plan has changed since</strong>, so ask again to review the latest{% endif %}. A point that says "usually" is from what's generally known about a place: check it before changing the plan.</p>
+  {% include "manage/_findings.html" with findings=review_findings empty="Claude found nothing that wouldn't work." %}
+  {% elif claude %}
+  <p class="small muted">Claude reads the plan (days, places, times, titles and opening hours, but no booking numbers, names, hotels, costs or notes) and points out what the checks above can't see: a sight planned on a day it's closed, a day too full to manage, a late arrival before an early start. It takes a few seconds.</p>
+  {% else %}
+  <p class="small muted">Claude isn't set up on this site. Add an Anthropic API key to the site's settings to have it review the plan.</p>
+  {% endif %}
+</section>
+{% endblock %}

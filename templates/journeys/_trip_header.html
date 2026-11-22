@@ -20,7 +20,7 @@
                 <ol class="stops">
                   {% for stop in stops %}
                   <li>
-                    <span class="stop-name">{{ stop.name }} {% if stop.local %}<span class="local">{{ stop.local }}</span>{% endif %}</span>
+                    <span class="stop-name">{% if stop.guide_url %}<a href="{{ stop.guide_url }}">{{ stop.name }}</a>{% else %}{{ stop.name }}{% endif %} {% if stop.local %}<span class="local">{{ stop.local }}</span>{% endif %}</span>
                     <span class="small muted">{{ stop.nights }} night{{ stop.nights|pluralize }}{% if full or not trip.hide_dates %} · {{ stop.first|date:"j M" }}{% endif %}</span>
                     {% with weather=stop.weather.data.summary %}{% if weather %}<span class="weather">{% if stop.weather.kind == "forecast" %}Forecast{% else %}Typical{% endif %} {{ weather.min }}–{{ weather.max }} °C{% if weather.rain_share is not None %} · rain {{ weather.rain_share }}% of days{% endif %}</span>{% endif %}{% endwith %}
                   </li>

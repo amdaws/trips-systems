@@ -1,0 +1,24 @@
+{% extends "manage/base.html" %}
+
+{% block page_title %}Guide to {{ stop.name }} · {{ trip.title }}{% endblock %}
+
+{% block manage_content %}
+<p class="small"><a href="{% url 'manage:guides' trip.pk %}">← All guides</a></p>
+<div class="toolbar">
+  <h2>{{ stop.name }}{% if stop.local %} <span class="muted">{{ stop.local }}</span>{% endif %}{% if pinyin %} <span class="small muted">{{ pinyin }}</span>{% endif %}</h2>
+  {% if claude %}
+  <form method="post" action="{% url 'manage:guide_draft' trip.pk stop.place.pk %}">{% csrf_token %}
+    <button class="btn" type="submit">{% if guide.pk and not guide.is_empty %}Draft again with Claude{% else %}Draft with Claude{% endif %}</button>
+  </form>
+  {% endif %}
+</div>
+{% if guide.drafted_at %}
+<p class="alert">Drafted by Claude on {{ guide.drafted_at|date:"D j M Y" }}{% if guide.drafted_by %} ({{ guide.drafted_by }}){% endif %}, from what's generally known about {{ stop.name }}. Check each fact before publishing{% if guide.pk and not guide.is_empty %}; drafting again replaces this text and unpublishes the guide{% endif %}.</p>
+{% endif %}
+
+<form method="post" class="form card stack">
+  {% csrf_token %}
+  {% for field in form %}{% include "manage/_field.html" %}{% endfor %}
+  <div class="btn-row"><button class="btn btn--primary" type="submit">Save</button><a class="btn" href="{% url 'manage:guides' trip.pk %}">Cancel</a></div>
+</form>
+{% endblock %}

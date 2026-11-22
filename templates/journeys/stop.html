@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}{{ stop.name }} · {{ trip.title }} · {{ site.name }}{% endblock %}
+{% block description %}{{ guide.lede|default:stop.name }}{% endblock %}
+{% block extra_head %}{% if unlisted or not guide.is_published %}<meta name="robots" content="noindex, nofollow">{% endif %}{% endblock %}
+{% block header_width %}container--app{% endblock %}
+{% block footer_width %}container--app{% endblock %}
+
+{% block content %}
+{% include "journeys/_trip_header.html" %}
+<div class="container container--app page-body">
+  <div class="stop-guide">
+    <nav class="stop-index" aria-label="Stops in trip order">
+      <p class="stop-index__title">Stops in trip order</p>
+      <ol>
+        {% for other in stops %}
+        <li>{% if other.guide_url %}<a href="{{ other.guide_url }}"{% if other.index == stop.index %} aria-current="page"{% endif %}>{% else %}<span class="stop-index__plain">{% endif %}
+          <span class="stop-index__name">{{ other.name }}{% if other.local %} <span class="local" lang="zh">{{ other.local }}</span>{% endif %}</span>
+          <span class="stop-index__when">{{ other.nights }} night{{ other.nights|pluralize }}{% if full or not trip.hide_dates %} · {{ other.first|date:"j M" }}{% endif %}</span>
+        {% if other.guide_url %}</a>{% else %}</span>{% endif %}</li>
+        {% endfor %}
+      </ol>
+    </nav>
+
+    <article class="stop-guide__body">
+      {% if not guide.is_published %}<p class="alert">Draft: only you can see this page until the guide is published in the planner.</p>{% endif %}
+      <header class="stop-sign">
+        <div class="stop-sign__board">
+          {% if stop.local %}<span class="stop-sign__local" lang="zh">{{ stop.local }}</span>{% endif %}
+          {% if pinyin %}<span class="stop-sign__pinyin">{{ pinyin }}</span>{% endif %}
+          <h2 class="stop-sign__name">{{ stop.name }}</h2>
+        </div>
+        <div class="stop-sign__bar">
+          <span class="stop-sign__side">{% if previous %}{% if previous.guide_url %}<a href="{{ previous.guide_url }}">← {{ previous.name }}</a>{% else %}← {{ previous.name }}{% endif %}{% endif %}</span>
+          <span class="stop-sign__region">{{ guide.region }}</span>
+          <span class="stop-sign__side stop-sign__side--end">{% if following %}{% if following.guide_url %}<a href="{{ following.guide_url }}">{{ following.name }} →</a>{% else %}{{ following.name }} →{% endif %}{% endif %}</span>
+        </div>
+      </header>
+
+      <div class="stop-guide__top">
+        {% if guide.lede %}<p class="stop-guide__lede">{{ guide.lede }}</p>{% endif %}
+        <p class="stop-guide__when">{{ dates }} · {{ stop.nights }} night{{ stop.nights|pluralize }}{% if weather %} · {{ weather }}{% endif %}</p>
+        {% if guide.fact_list %}
+        <dl class="stop-facts">
+          {% for label, value in guide.fact_list %}<div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>{% endfor %}
+        </dl>
+        {% endif %}
+      </div>
+
+      {% if planned %}
+      <section class="stop-section">
+        <h3 class="stop-section__title">Planned here</h3>
+        <ul class="stop-timeline">
+          {% for item in planned %}<li><span class="stop-timeline__when">{{ item.when }}</span><span>{{ item.title }}</span></li>{% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if guide.paragraphs %}
+      <section class="stop-section">
+        <h3 class="stop-section__title">History</h3>
+        {% for paragraph in guide.paragraphs %}<p class="stop-guide__prose">{{ paragraph }}</p>{% endfor %}
+      </section>
+      {% endif %}
+
+      {% if guide.decade_list %}
+      <section class="stop-section">
+        <h3 class="stop-section__title">The last decade</h3>
+        <ol class="stop-timeline">
+          {% for year, text in guide.decade_list %}<li><span class="stop-timeline__when">{{ year }}</span><span>{{ text }}</span></li>{% endfor %}
+        </ol>
+      </section>
+      {% endif %}
+
+      {% if guide.wonder_list %}
+      <section class="stop-section">
+        <h3 class="stop-section__title">Natural wonders</h3>
+        <ul class="stop-wonders">
+          {% for name, text in guide.wonder_list %}<li><h4>{{ name }}</h4><p>{{ text }}</p></li>{% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if guide.drafted_at %}<p class="small muted">Drafted with Claude from what's generally known about {{ stop.name }}, then checked. Facts change, so check anything important before you rely on it.</p>{% endif %}
+    </article>
+  </div>
+</div>
+{% endblock %}

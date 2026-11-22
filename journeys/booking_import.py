@@ -179,7 +179,7 @@ def parse(text, trip=None, subject=""):
     """Booking details found in confirmation text, plus which trip legs it mentions."""
     text = redact(clean_text(text))
     lines = text.split("\n")
-    found = {"booking_ref": "", "name": "", "name_local": "", "address": "", "phone": "", "email": "",
+    found = {"booking_ref": "", "name": "", "name_local": "", "address": "", "address_local": "", "phone": "", "email": "",
              "check_in_date": None, "check_in_time": "", "check_out_date": None, "check_out_time": "",
              "nights": None, "room": "", "special_requests": "", "amount": None, "currency": "", "legs": []}
 
@@ -339,6 +339,9 @@ def apply_to_activity(item, found, fields):
         item.title = found["title"][:200]
     if "meeting_point" in fields and found.get("meeting_point"):
         item.address = found["meeting_point"][:300]
+    for key, size in (("name_local", 200), ("address_local", 300)):
+        if key in fields and found.get(key):
+            setattr(item, key, found[key][:size])
     if "start_time" in fields and found.get("start_time"):
         hour, minute = found["start_time"].split(":")
         item.start_time = time(int(hour), int(minute))
@@ -415,6 +418,7 @@ def apply_to_stay(stay, found, fields):
     """Copy the chosen fields onto the stay (and mark it booked)."""
     mapping = {
         "booking_ref": "booking_ref", "name": "name", "address": "address", "phone": "phone", "email": "email",
+        "name_local": "name_local", "address_local": "address_local",
         "check_in_date": "check_in_date", "check_in_time": "check_in_time",
         "check_out_date": "check_out_date", "check_out_time": "check_out_time",
     }

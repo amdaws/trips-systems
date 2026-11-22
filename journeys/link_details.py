@@ -310,6 +310,8 @@ def refresh(plan):
         before = (plan.address, plan.location_id)
         _fill(plan, "name", (f.get("name") or "")[:200], filled, "property name")
         _fill(plan, "address", f.get("address", ""), filled, "address")
+        _fill(plan, "name_local", (f.get("name_local") or "")[:200], filled, "local name")
+        _fill(plan, "address_local", f.get("address_local", ""), filled, "local address")
         _fill(plan, "phone", (f.get("phone") or "")[:60], filled, "phone")
         _fill(plan, "email", (f.get("email") or "")[:254], filled, "email")
         _fill(plan, "check_in_time", as_time(f.get("check_in_time")), filled, "check-in time")
@@ -323,6 +325,8 @@ def refresh(plan):
     elif isinstance(plan, Item):
         had_place = plan.place_id
         _fill(plan, "address", (f.get("address") or "")[:300], filled, "address")
+        _fill(plan, "name_local", (f.get("name_local") or "")[:200], filled, "local name")
+        _fill(plan, "address_local", (f.get("address_local") or "")[:300], filled, "local address")
         _fill(plan, "place", result["place"], filled, "map location")
         _fill(plan, "opening_hours", (f.get("opening_hours") or "")[:300], filled, "opening hours")
         _fill(plan, "phone", (f.get("phone") or "")[:60], filled, "phone")

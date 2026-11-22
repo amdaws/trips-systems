@@ -6,6 +6,7 @@
 <div class="toolbar">
   <h2>Stays</h2>
   <div class="btn-row">
+    <a class="btn" href="{% url 'manage:taxi_cards' trip.pk %}">Taxi cards</a>
     <a class="btn" href="{% url 'manage:imports' %}?trip={{ trip.pk }}">Import a booking</a>
     <a class="btn btn--primary" href="{% url 'manage:stay_create' trip.pk %}">Add a stay</a>
   </div>
